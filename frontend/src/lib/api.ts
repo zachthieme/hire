@@ -15,6 +15,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     headers,
     body: body ? JSON.stringify(body) : undefined,
   })
+  if (res.status === 401 && token && path !== '/auth/login') {
+    // Token expired or invalid — clear auth and redirect to login
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    window.location.href = '/login'
+    throw new Error('Session expired')
+  }
   if (res.status === 204) return undefined as T
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }))
@@ -27,6 +34,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const auth = {
   login: (email: string, password: string) =>
     request<{ token: string; user: User }>('POST', '/auth/login', { email, password }),
+  me: () => request<User>('GET', '/me'),
 }
 
 // Users

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { auth as authApi, type User } from './api'
 
 interface AuthContextType {
@@ -32,6 +32,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     setUser(null)
   }, [])
+
+  // Refresh user data on mount if we have a token
+  useEffect(() => {
+    if (token) {
+      authApi.me().then(freshUser => {
+        localStorage.setItem('user', JSON.stringify(freshUser))
+        setUser(freshUser)
+      }).catch(() => {
+        // Token is invalid — clear auth
+        logout()
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
