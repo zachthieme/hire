@@ -29,8 +29,8 @@ func (s *Store) GetCandidate(id int64) (*models.Candidate, error) {
 	return &c, err
 }
 
-func (s *Store) ListCandidates() ([]*models.Candidate, error) {
-	rows, err := s.db.Query(`SELECT id, name, email, resume_url, status, created_at FROM candidates ORDER BY id DESC`)
+func (s *Store) ListCandidates(limit, offset int) ([]*models.Candidate, error) {
+	rows, err := s.db.Query(`SELECT id, name, email, resume_url, status, created_at FROM candidates ORDER BY id DESC LIMIT ? OFFSET ?`, limit, offset)
 	if err != nil {
 		return nil, err
 	}

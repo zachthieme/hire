@@ -21,6 +21,14 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if err := validateRequired(map[string]string{"email": req.Email, "name": req.Name, "password": req.Password}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := validateEnum(req.Role, "role", []string{"admin", "scheduler", "interviewer"}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	hash, err := HashPassword(req.Password)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "password hash failed")
@@ -35,7 +43,8 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := h.store.ListUsers()
+	limit, offset := parsePagination(r)
+	users, err := h.store.ListUsers(limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

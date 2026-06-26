@@ -17,10 +17,10 @@ func (s *Store) CreateNotification(n *models.Notification) error {
 	return nil
 }
 
-func (s *Store) ListNotificationsByUser(userID int64) ([]*models.Notification, error) {
+func (s *Store) ListNotificationsByUser(userID int64, limit, offset int) ([]*models.Notification, error) {
 	rows, err := s.db.Query(
-		`SELECT id, user_id, message, link, read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC`,
-		userID,
+		`SELECT id, user_id, message, link, read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+		userID, limit, offset,
 	)
 	if err != nil {
 		return nil, err

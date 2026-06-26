@@ -9,7 +9,8 @@ import (
 
 func (h *Handler) ListNotifications(w http.ResponseWriter, r *http.Request) {
 	userID := UserID(r.Context())
-	list, err := h.store.ListNotificationsByUser(userID)
+	limit, offset := parsePagination(r)
+	list, err := h.store.ListNotificationsByUser(userID, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

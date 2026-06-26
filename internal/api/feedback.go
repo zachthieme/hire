@@ -65,6 +65,10 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if err := validateEnum(fb.Recommendation, "recommendation", []string{"strong_hire", "hire", "no_hire", "strong_no_hire"}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	fb.InterviewID = interviewID
 	if err := h.store.CreateFeedback(&fb); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

@@ -14,6 +14,10 @@ func (h *Handler) CreateCandidate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if err := validateRequired(map[string]string{"name": c.Name, "email": c.Email}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if c.Status == "" {
 		c.Status = "active"
 	}
@@ -39,7 +43,8 @@ func (h *Handler) GetCandidate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListCandidates(w http.ResponseWriter, r *http.Request) {
-	list, err := h.store.ListCandidates()
+	limit, offset := parsePagination(r)
+	list, err := h.store.ListCandidates(limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -76,11 +76,41 @@ func (s *Store) GetFeedbackByInterview(interviewID int64) (*models.Feedback, err
 }
 
 func (s *Store) UpdateFeedback(fb *models.Feedback) error {
-	_, err := s.db.Exec(
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(
 		`UPDATE feedback SET recommendation = ?, recommendation_reason = ?, free_form_notes = ? WHERE id = ?`,
 		fb.Recommendation, fb.RecommendationReason, fb.FreeFormNotes, fb.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Replace competency ratings
+	if len(fb.CompetencyRatings) > 0 {
+		_, err = tx.Exec(`DELETE FROM competency_ratings WHERE feedback_id = ?`, fb.ID)
+		if err != nil {
+			return err
+		}
+		for i := range fb.CompetencyRatings {
+			cr := &fb.CompetencyRatings[i]
+			cr.FeedbackID = fb.ID
+			res, err := tx.Exec(
+				`INSERT INTO competency_ratings (feedback_id, competency_id, rating_value) VALUES (?, ?, ?)`,
+				cr.FeedbackID, cr.CompetencyID, cr.RatingValue,
+			)
+			if err != nil {
+				return err
+			}
+			cr.ID, _ = res.LastInsertId()
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (s *Store) HasUserSubmittedFeedbackForLoop(loopID, userID int64) bool {

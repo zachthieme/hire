@@ -14,6 +14,10 @@ func (h *Handler) CreateLoop(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if l.CandidateID == 0 {
+		writeError(w, http.StatusBadRequest, "candidate_id is required")
+		return
+	}
 	l.CreatedBy = UserID(r.Context())
 	if l.Status == "" {
 		l.Status = "scheduling"
@@ -67,7 +71,8 @@ func (h *Handler) ListLoops(w http.ResponseWriter, r *http.Request) {
 		status = &v
 	}
 
-	loops, err := h.store.ListLoops(candidateID, status)
+	limit, offset := parsePagination(r)
+	loops, err := h.store.ListLoops(candidateID, status, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -89,6 +94,10 @@ func (h *Handler) UpdateLoop(w http.ResponseWriter, r *http.Request) {
 	var updates models.InterviewLoop
 	if err := readJSON(r, &updates); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if err := validateEnum(updates.Status, "status", []string{"scheduling", "active", "complete"}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	existing.Status = updates.Status

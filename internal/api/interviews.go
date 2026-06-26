@@ -20,6 +20,14 @@ func (h *Handler) CreateInterview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if err := validateRequired(map[string]string{"focus_area": iv.FocusArea}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if iv.InterviewerID == 0 {
+		writeError(w, http.StatusBadRequest, "interviewer_id is required")
+		return
+	}
 	iv.LoopID = loopID
 	if iv.Status == "" {
 		iv.Status = "pending"

@@ -27,7 +27,7 @@ func TestListCandidates(t *testing.T) {
 	s := newTestStore(t)
 	s.CreateCandidate(&models.Candidate{Name: "A", Email: "a@a.com", Status: "active"})
 	s.CreateCandidate(&models.Candidate{Name: "B", Email: "b@b.com", Status: "active"})
-	list, err := s.ListCandidates()
+	list, err := s.ListCandidates(50, 0)
 	if err != nil {
 		t.Fatalf("ListCandidates: %v", err)
 	}

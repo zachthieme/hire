@@ -14,6 +14,14 @@ func (h *Handler) CreateCompetency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if err := validateRequired(map[string]string{"name": c.Name, "ratings_json": c.RatingsJSON}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := validateEnum(c.RatingType, "rating_type", []string{"levels", "stars"}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := h.store.CreateCompetency(&c); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

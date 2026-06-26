@@ -41,7 +41,7 @@ func TestListLoops(t *testing.T) {
 	s.CreateLoop(&models.InterviewLoop{CandidateID: c.ID, Status: "scheduling", CreatedBy: u.ID})
 	s.CreateLoop(&models.InterviewLoop{CandidateID: c.ID, Status: "active", CreatedBy: u.ID})
 
-	loops, err := s.ListLoops(nil, nil)
+	loops, err := s.ListLoops(nil, nil, 50, 0)
 	if err != nil {
 		t.Fatalf("ListLoops: %v", err)
 	}

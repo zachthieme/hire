@@ -15,7 +15,7 @@ func TestCreateAndListNotifications(t *testing.T) {
 		t.Fatalf("CreateNotification: %v", err)
 	}
 
-	list, err := s.ListNotificationsByUser(u.ID)
+	list, err := s.ListNotificationsByUser(u.ID, 50, 0)
 	if err != nil {
 		t.Fatalf("ListNotificationsByUser: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestMarkNotificationRead(t *testing.T) {
 		t.Fatalf("MarkNotificationRead: %v", err)
 	}
 
-	list, _ := s.ListNotificationsByUser(u.ID)
+	list, _ := s.ListNotificationsByUser(u.ID, 50, 0)
 	if !list[0].Read {
 		t.Error("expected read")
 	}

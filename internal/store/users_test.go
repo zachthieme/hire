@@ -46,7 +46,7 @@ func TestListUsers(t *testing.T) {
 	s.CreateUser(&models.User{Email: "a@test.com", Name: "A", PasswordHash: "h", Role: "admin"})
 	s.CreateUser(&models.User{Email: "b@test.com", Name: "B", PasswordHash: "h", Role: "interviewer"})
 
-	users, err := s.ListUsers()
+	users, err := s.ListUsers(50, 0)
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
