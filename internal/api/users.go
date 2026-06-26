@@ -103,3 +103,13 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
+	userID := UserID(r.Context())
+	u, err := h.store.GetUserByID(userID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "user not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, u)
+}

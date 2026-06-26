@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
 
 	root "hire"
 	"hire/internal/api"
@@ -15,8 +16,16 @@ import (
 func main() {
 	addr := flag.String("addr", ":8080", "listen address")
 	dbPath := flag.String("db", "hire.db", "SQLite database path")
-	jwtSecret := flag.String("jwt-secret", "change-me-in-production", "JWT signing secret")
+	jwtSecret := flag.String("jwt-secret", "", "JWT signing secret (or set JWT_SECRET env var)")
 	flag.Parse()
+
+	secret := *jwtSecret
+	if secret == "" {
+		secret = os.Getenv("JWT_SECRET")
+	}
+	if secret == "" {
+		log.Fatal("JWT secret is required: use -jwt-secret flag or JWT_SECRET env var")
+	}
 
 	s, err := store.New(*dbPath)
 	if err != nil {
@@ -24,7 +33,7 @@ func main() {
 	}
 	defer s.Close()
 
-	h := api.NewHandler(s, *jwtSecret)
+	h := api.NewHandler(s, secret)
 	r := h.Router()
 
 	// Serve embedded frontend

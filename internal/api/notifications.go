@@ -23,8 +23,9 @@ func (h *Handler) MarkNotificationRead(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := h.store.MarkNotificationRead(id); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	userID := UserID(r.Context())
+	if err := h.store.MarkNotificationRead(id, userID); err != nil {
+		writeError(w, http.StatusNotFound, "notification not found")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

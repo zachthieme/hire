@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -49,9 +50,10 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		uid, _ := claims.GetSubject()
 		role, _ := claims["role"].(string)
 
-		var userID int64
-		for _, c := range uid {
-			userID = userID*10 + int64(c-'0')
+		userID, err := strconv.ParseInt(uid, 10, 64)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "invalid token subject")
+			return
 		}
 
 		ctx := context.WithValue(r.Context(), userIDKey, userID)

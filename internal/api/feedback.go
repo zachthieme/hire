@@ -15,6 +15,25 @@ func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
+
+	// Check visibility for interviewers
+	role := UserRole(r.Context())
+	userID := UserID(r.Context())
+	if role == "interviewer" {
+		iv, err := h.store.GetInterview(interviewID)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "interview not found")
+			return
+		}
+		// If not their own interview, check if they've submitted feedback for this loop
+		if iv.InterviewerID != userID {
+			if !h.store.HasUserSubmittedFeedbackForLoop(iv.LoopID, userID) {
+				writeError(w, http.StatusForbidden, "submit your feedback first")
+				return
+			}
+		}
+	}
+
 	fb, err := h.store.GetFeedbackByInterview(interviewID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "feedback not found")
@@ -72,6 +91,18 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "feedback not found")
 		return
 	}
+
+	// Authorization: verify the caller owns this feedback
+	iv, err := h.store.GetInterview(existing.InterviewID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to verify ownership")
+		return
+	}
+	if iv.InterviewerID != UserID(r.Context()) && UserRole(r.Context()) != "admin" {
+		writeError(w, http.StatusForbidden, "not your feedback")
+		return
+	}
+
 	var updates models.Feedback
 	if err := readJSON(r, &updates); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")

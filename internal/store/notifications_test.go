@@ -34,7 +34,7 @@ func TestMarkNotificationRead(t *testing.T) {
 	n := &models.Notification{UserID: u.ID, Message: "Test", Link: "/test"}
 	s.CreateNotification(n)
 
-	if err := s.MarkNotificationRead(n.ID); err != nil {
+	if err := s.MarkNotificationRead(n.ID, u.ID); err != nil {
 		t.Fatalf("MarkNotificationRead: %v", err)
 	}
 

@@ -25,6 +25,7 @@ func (h *Handler) Router() chi.Router {
 		r.Use(h.AuthMiddleware)
 
 		// Any authenticated user
+		r.Get("/api/me", h.GetMe)
 		r.Get("/api/me/interviews", h.ListMyInterviews)
 		r.Get("/api/notifications", h.ListNotifications)
 		r.Put("/api/notifications/{id}/read", h.MarkNotificationRead)

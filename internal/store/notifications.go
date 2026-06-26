@@ -37,9 +37,16 @@ func (s *Store) ListNotificationsByUser(userID int64) ([]*models.Notification, e
 	return out, rows.Err()
 }
 
-func (s *Store) MarkNotificationRead(id int64) error {
-	_, err := s.db.Exec(`UPDATE notifications SET read = 1 WHERE id = ?`, id)
-	return err
+func (s *Store) MarkNotificationRead(id, userID int64) error {
+	res, err := s.db.Exec(`UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?`, id, userID)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("notification not found")
+	}
+	return nil
 }
 
 func (s *Store) CountUnreadNotifications(userID int64) (int, error) {

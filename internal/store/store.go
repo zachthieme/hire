@@ -2,13 +2,16 @@ package store
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
-	"os"
+	"io/fs"
 	"path/filepath"
-	"runtime"
 
 	_ "modernc.org/sqlite"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 type Store struct {
 	db *sql.DB
@@ -40,21 +43,19 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) migrate() error {
-	_, thisFile, _, _ := runtime.Caller(0)
-	migrationsDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "migrations")
-	entries, err := os.ReadDir(migrationsDir)
+	entries, err := fs.ReadDir(migrationsFS, "migrations")
 	if err != nil {
-		return fmt.Errorf("read migrations dir: %w", err)
+		return fmt.Errorf("read migrations: %w", err)
 	}
 	for _, e := range entries {
 		if filepath.Ext(e.Name()) != ".sql" {
 			continue
 		}
-		sql, err := os.ReadFile(filepath.Join(migrationsDir, e.Name()))
+		data, err := fs.ReadFile(migrationsFS, "migrations/"+e.Name())
 		if err != nil {
 			return fmt.Errorf("read %s: %w", e.Name(), err)
 		}
-		if _, err := s.db.Exec(string(sql)); err != nil {
+		if _, err := s.db.Exec(string(data)); err != nil {
 			return fmt.Errorf("exec %s: %w", e.Name(), err)
 		}
 	}
