@@ -1,0 +1,6 @@
+hire-server
+hire.db
+hire.db-shm
+hire.db-wal
+frontend/node_modules
+frontend/dist
