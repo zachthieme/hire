@@ -9,6 +9,8 @@ import CandidatesList from '@/pages/scheduler/CandidatesList'
 import CandidateDetail from '@/pages/scheduler/CandidateDetail'
 import LoopEditor from '@/pages/scheduler/LoopEditor'
 import DebriefView from '@/pages/scheduler/DebriefView'
+import MyInterviews from '@/pages/interviewer/MyInterviews'
+import InterviewDetail from '@/pages/interviewer/InterviewDetail'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -28,8 +30,8 @@ export default function App() {
         }
       >
         <Route path="/" element={<Dashboard />} />
-        <Route path="/my-interviews" element={<div className="text-gray-500">My Interviews (coming soon)</div>} />
-        <Route path="/interviews/:id" element={<div className="text-gray-500">Interview Detail (coming soon)</div>} />
+        <Route path="/my-interviews" element={<MyInterviews />} />
+        <Route path="/interviews/:id" element={<InterviewDetail />} />
         <Route path="/candidates" element={<CandidatesList />} />
         <Route path="/candidates/:id" element={<CandidateDetail />} />
         <Route path="/loops/:id/edit" element={<LoopEditor />} />
