@@ -2,6 +2,7 @@ package api
 
 import (
 	"hire/internal/models"
+	"hire/internal/notify"
 	"net/http"
 	"strconv"
 
@@ -27,6 +28,7 @@ func (h *Handler) CreateInterview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	notify.InterviewAssigned(h.store, iv.InterviewerID, iv.ID, iv.FocusArea)
 	writeJSON(w, http.StatusCreated, iv)
 }
 

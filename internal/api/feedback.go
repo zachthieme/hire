@@ -2,6 +2,7 @@ package api
 
 import (
 	"hire/internal/models"
+	"hire/internal/notify"
 	"net/http"
 	"strconv"
 
@@ -49,6 +50,12 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 	if err := h.store.CreateFeedback(&fb); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	loop, _ := h.store.GetLoop(iv.LoopID)
+	if loop != nil {
+		notify.FeedbackSubmitted(h.store, loop.CreatedBy, iv.LoopID, iv.FocusArea)
+		notify.CheckDebriefReady(h.store, loop)
 	}
 
 	writeJSON(w, http.StatusCreated, fb)
