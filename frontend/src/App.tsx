@@ -3,6 +3,8 @@ import { useAuth } from '@/lib/auth'
 import Layout from '@/components/Layout'
 import LoginPage from '@/pages/LoginPage'
 import Dashboard from '@/pages/Dashboard'
+import UserManagement from '@/pages/admin/UserManagement'
+import CompetencyManagement from '@/pages/admin/CompetencyManagement'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -28,8 +30,8 @@ export default function App() {
         <Route path="/candidates/:id" element={<div className="text-gray-500">Candidate Detail (coming soon)</div>} />
         <Route path="/loops/:id/edit" element={<div className="text-gray-500">Loop Editor (coming soon)</div>} />
         <Route path="/loops/:id/debrief" element={<div className="text-gray-500">Debrief (coming soon)</div>} />
-        <Route path="/admin/users" element={<div className="text-gray-500">User Management (coming soon)</div>} />
-        <Route path="/admin/competencies" element={<div className="text-gray-500">Competency Management (coming soon)</div>} />
+        <Route path="/admin/users" element={<UserManagement />} />
+        <Route path="/admin/competencies" element={<CompetencyManagement />} />
       </Route>
     </Routes>
   )
