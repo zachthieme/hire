@@ -72,3 +72,22 @@ func TestListInterviewsByUser(t *testing.T) {
 		t.Fatalf("got %d, want 1", len(list))
 	}
 }
+
+func TestCountIncompleteInterviews(t *testing.T) {
+	s := newTestStore(t)
+	u, c := createTestUserAndCandidate(t, s)
+	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "active", CreatedBy: u.ID}
+	s.CreateLoop(context.Background(), loop)
+
+	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"})
+	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "design", ScheduledAt: time.Now(), Status: "pending"})
+	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "behavioral", ScheduledAt: time.Now(), Status: "complete"})
+
+	count, err := s.CountIncompleteInterviews(context.Background(), loop.ID)
+	if err != nil {
+		t.Fatalf("CountIncompleteInterviews: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("count = %d, want 2", count)
+	}
+}

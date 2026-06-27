@@ -14,7 +14,7 @@ func (h *Handler) ListNotifications(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	list, err := h.store.ListNotificationsByUser(r.Context(), userID, limit, offset)
 	if err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -31,7 +31,7 @@ func (h *Handler) MarkNotificationRead(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "notification not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}

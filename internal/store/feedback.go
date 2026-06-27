@@ -88,7 +88,10 @@ func (s *Store) UpdateFeedback(ctx context.Context, fb *models.Feedback) error {
 	if err != nil {
 		return err
 	}
-	n, _ := res.RowsAffected()
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
 	if n == 0 {
 		return ErrNotFound
 	}

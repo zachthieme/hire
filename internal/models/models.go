@@ -2,6 +2,66 @@ package models
 
 import "time"
 
+// User roles.
+const (
+	RoleAdmin       = "admin"
+	RoleScheduler   = "scheduler"
+	RoleInterviewer = "interviewer"
+)
+
+// ValidRoles is the set of allowed user roles.
+var ValidRoles = []string{RoleAdmin, RoleScheduler, RoleInterviewer}
+
+// Candidate statuses.
+const (
+	CandidateStatusActive    = "active"
+	CandidateStatusHired     = "hired"
+	CandidateStatusRejected  = "rejected"
+	CandidateStatusWithdrawn = "withdrawn"
+)
+
+// ValidCandidateStatuses is the set of allowed candidate statuses.
+var ValidCandidateStatuses = []string{CandidateStatusActive, CandidateStatusHired, CandidateStatusRejected, CandidateStatusWithdrawn}
+
+// Interview loop statuses.
+const (
+	LoopStatusScheduling = "scheduling"
+	LoopStatusActive     = "active"
+	LoopStatusComplete   = "complete"
+)
+
+// ValidLoopStatuses is the set of allowed loop statuses.
+var ValidLoopStatuses = []string{LoopStatusScheduling, LoopStatusActive, LoopStatusComplete}
+
+// Interview statuses.
+const (
+	InterviewStatusPending  = "pending"
+	InterviewStatusComplete = "complete"
+)
+
+// ValidInterviewStatuses is the set of allowed interview statuses.
+var ValidInterviewStatuses = []string{InterviewStatusPending, InterviewStatusComplete}
+
+// Feedback recommendations.
+const (
+	RecommendationStrongHire   = "strong_hire"
+	RecommendationHire         = "hire"
+	RecommendationNoHire       = "no_hire"
+	RecommendationStrongNoHire = "strong_no_hire"
+)
+
+// ValidRecommendations is the set of allowed feedback recommendations.
+var ValidRecommendations = []string{RecommendationStrongHire, RecommendationHire, RecommendationNoHire, RecommendationStrongNoHire}
+
+// Competency rating types.
+const (
+	RatingTypeLevels = "levels"
+	RatingTypeStars  = "stars"
+)
+
+// ValidRatingTypes is the set of allowed rating types.
+var ValidRatingTypes = []string{RatingTypeLevels, RatingTypeStars}
+
 type User struct {
 	ID           int64     `json:"id"`
 	Email        string    `json:"email"`

@@ -5,6 +5,7 @@ import (
 	"hire/internal/models"
 	"hire/internal/notify"
 	"hire/internal/store"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -21,13 +22,13 @@ func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 	// Check visibility for interviewers
 	role := UserRole(r.Context())
 	userID := UserID(r.Context())
-	if role == "interviewer" {
+	if role == models.RoleInterviewer {
 		iv, err := h.store.GetInterview(r.Context(), interviewID)
 		if err != nil {
 			if errors.Is(err, store.ErrNotFound) {
 				writeError(w, http.StatusNotFound, "interview not found")
 			} else {
-				writeInternalError(w, err)
+				writeInternalError(w, r, err)
 			}
 			return
 		}
@@ -35,7 +36,7 @@ func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 		if iv.InterviewerID != userID {
 			submitted, err := h.store.HasUserSubmittedFeedbackForLoop(r.Context(), iv.LoopID, userID)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "internal error")
+				writeInternalError(w, r, err)
 				return
 			}
 			if !submitted {
@@ -50,7 +51,7 @@ func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "feedback not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -70,11 +71,11 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "interview not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
-	if iv.InterviewerID != UserID(r.Context()) && UserRole(r.Context()) == "interviewer" {
+	if iv.InterviewerID != UserID(r.Context()) && UserRole(r.Context()) == models.RoleInterviewer {
 		writeError(w, http.StatusForbidden, "not your interview")
 		return
 	}
@@ -84,18 +85,21 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if err := validateEnum(fb.Recommendation, "recommendation", []string{"strong_hire", "hire", "no_hire", "strong_no_hire"}); err != nil {
+	if err := validateEnum(fb.Recommendation, "recommendation", models.ValidRecommendations); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	fb.InterviewID = interviewID
 	if err := h.store.CreateFeedback(r.Context(), &fb); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 
-	loop, _ := h.store.GetLoop(r.Context(), iv.LoopID)
-	if loop != nil {
+	loop, err := h.store.GetLoop(r.Context(), iv.LoopID)
+	if err != nil {
+		slog.ErrorContext(r.Context(), "failed to load loop for notification",
+			"error", err, "loop_id", iv.LoopID, "request_id", RequestID(r.Context()))
+	} else {
 		notify.FeedbackSubmitted(r.Context(), h.store, loop.CreatedBy, iv.LoopID, iv.FocusArea)
 		notify.CheckDebriefReady(r.Context(), h.store, loop)
 	}
@@ -114,7 +118,7 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "feedback not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -122,10 +126,10 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 	// Authorization: verify the caller owns this feedback
 	iv, err := h.store.GetInterview(r.Context(), existing.InterviewID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to verify ownership")
+		writeInternalError(w, r, err)
 		return
 	}
-	if iv.InterviewerID != UserID(r.Context()) && UserRole(r.Context()) != "admin" {
+	if iv.InterviewerID != UserID(r.Context()) && UserRole(r.Context()) != models.RoleAdmin {
 		writeError(w, http.StatusForbidden, "not your feedback")
 		return
 	}
@@ -136,7 +140,7 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if updates.Recommendation != "" {
-		if err := validateEnum(updates.Recommendation, "recommendation", []string{"strong_hire", "hire", "no_hire", "strong_no_hire"}); err != nil {
+		if err := validateEnum(updates.Recommendation, "recommendation", models.ValidRecommendations); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -152,7 +156,7 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}

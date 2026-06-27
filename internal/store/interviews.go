@@ -51,7 +51,10 @@ func (s *Store) UpdateInterview(ctx context.Context, iv *models.Interview) error
 	if err != nil {
 		return err
 	}
-	n, _ := res.RowsAffected()
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
 	if n == 0 {
 		return ErrNotFound
 	}
@@ -63,11 +66,22 @@ func (s *Store) DeleteInterview(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	n, _ := res.RowsAffected()
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
 	if n == 0 {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (s *Store) CountIncompleteInterviews(ctx context.Context, loopID int64) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM interviews WHERE loop_id = $1 AND status != 'complete'`, loopID,
+	).Scan(&count)
+	return count, err
 }
 
 func (s *Store) queryInterviews(ctx context.Context, query string, args ...any) ([]*models.Interview, error) {

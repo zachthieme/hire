@@ -20,11 +20,19 @@ func (h *Handler) CreateCandidate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := validateEmail(c.Email); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if c.Status == "" {
-		c.Status = "active"
+		c.Status = models.CandidateStatusActive
+	}
+	if err := validateEnum(c.Status, "status", models.ValidCandidateStatuses); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 	if err := h.store.CreateCandidate(r.Context(), &c); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, c)
@@ -41,7 +49,7 @@ func (h *Handler) GetCandidate(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "candidate not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -52,7 +60,7 @@ func (h *Handler) ListCandidates(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	list, err := h.store.ListCandidates(r.Context(), limit, offset)
 	if err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -69,7 +77,7 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "candidate not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -79,7 +87,7 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if updates.Status != "" {
-		if err := validateEnum(updates.Status, "status", []string{"active", "hired", "rejected", "withdrawn"}); err != nil {
+		if err := validateEnum(updates.Status, "status", models.ValidCandidateStatuses); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -89,6 +97,10 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		existing.Name = updates.Name
 	}
 	if updates.Email != "" {
+		if err := validateEmail(updates.Email); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		existing.Email = updates.Email
 	}
 	if updates.ResumeURL != "" {
@@ -98,7 +110,7 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -112,7 +124,7 @@ func (h *Handler) DeleteCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteCandidate(r.Context(), id); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

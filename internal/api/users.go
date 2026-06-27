@@ -27,7 +27,15 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := validateEnum(req.Role, "role", []string{"admin", "scheduler", "interviewer"}); err != nil {
+	if err := validateEmail(req.Email); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(req.Password) < 8 {
+		writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+		return
+	}
+	if err := validateEnum(req.Role, "role", models.ValidRoles); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -38,9 +46,10 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	u := &models.User{Email: req.Email, Name: req.Name, PasswordHash: hash, Role: req.Role}
 	if err := h.store.CreateUser(r.Context(), u); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
+	u.PasswordHash = ""
 	writeJSON(w, http.StatusCreated, u)
 }
 
@@ -48,7 +57,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	users, err := h.store.ListUsers(r.Context(), limit, offset)
 	if err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, users)
@@ -65,7 +74,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -83,7 +92,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -93,13 +102,17 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Role != "" {
-		if err := validateEnum(req.Role, "role", []string{"admin", "scheduler", "interviewer"}); err != nil {
+		if err := validateEnum(req.Role, "role", models.ValidRoles); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		existing.Role = req.Role
 	}
 	if req.Email != "" {
+		if err := validateEmail(req.Email); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		existing.Email = req.Email
 	}
 	if req.Name != "" {
@@ -109,18 +122,22 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
 	if req.Password != "" {
+		if len(req.Password) < 8 {
+			writeError(w, http.StatusBadRequest, "password must be at least 8 characters")
+			return
+		}
 		hash, err := HashPassword(req.Password)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "password hash failed")
 			return
 		}
 		if err := h.store.UpdateUserPassword(r.Context(), id, hash); err != nil {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 			return
 		}
 	}
@@ -134,7 +151,7 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteUser(r.Context(), id); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -147,7 +164,7 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}

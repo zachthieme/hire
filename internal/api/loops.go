@@ -22,10 +22,14 @@ func (h *Handler) CreateLoop(w http.ResponseWriter, r *http.Request) {
 	}
 	l.CreatedBy = UserID(r.Context())
 	if l.Status == "" {
-		l.Status = "scheduling"
+		l.Status = models.LoopStatusScheduling
+	}
+	if err := validateEnum(l.Status, "status", models.ValidLoopStatuses); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 	if err := h.store.CreateLoop(r.Context(), &l); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, l)
@@ -42,7 +46,7 @@ func (h *Handler) GetLoopDetail(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "loop not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -50,10 +54,10 @@ func (h *Handler) GetLoopDetail(w http.ResponseWriter, r *http.Request) {
 	// Enforce feedback visibility rule for interviewers
 	role := UserRole(r.Context())
 	userID := UserID(r.Context())
-	if role == "interviewer" {
+	if role == models.RoleInterviewer {
 		hasSubmitted, err := h.store.HasUserSubmittedFeedbackForLoop(r.Context(), detail.ID, userID)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal error")
+			writeInternalError(w, r, err)
 			return
 		}
 		if !hasSubmitted {
@@ -84,7 +88,7 @@ func (h *Handler) ListLoops(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	loops, err := h.store.ListLoops(r.Context(), candidateID, status, limit, offset)
 	if err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, loops)
@@ -101,7 +105,7 @@ func (h *Handler) UpdateLoop(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "loop not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -110,7 +114,7 @@ func (h *Handler) UpdateLoop(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if err := validateEnum(updates.Status, "status", []string{"scheduling", "active", "complete"}); err != nil {
+	if err := validateEnum(updates.Status, "status", models.ValidLoopStatuses); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -121,7 +125,7 @@ func (h *Handler) UpdateLoop(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -135,7 +139,7 @@ func (h *Handler) DeleteLoop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteLoop(r.Context(), id); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

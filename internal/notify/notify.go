@@ -4,45 +4,53 @@ import (
 	"context"
 	"fmt"
 	"hire/internal/models"
-	"hire/internal/store"
-	"log"
+	"log/slog"
 )
 
-func InterviewAssigned(ctx context.Context, s *store.Store, interviewerID, interviewID int64, focusArea string) {
+// Notifier defines the store operations needed by the notification helpers.
+type Notifier interface {
+	CreateNotification(ctx context.Context, n *models.Notification) error
+	CountIncompleteInterviews(ctx context.Context, loopID int64) (int, error)
+}
+
+func InterviewAssigned(ctx context.Context, s Notifier, interviewerID, interviewID int64, focusArea string) {
 	if err := s.CreateNotification(ctx, &models.Notification{
 		UserID:  interviewerID,
 		Message: fmt.Sprintf("You've been assigned a %s interview", focusArea),
 		Link:    fmt.Sprintf("/interviews/%d", interviewID),
 	}); err != nil {
-		log.Printf("failed to create notification: %v", err)
+		slog.ErrorContext(ctx, "failed to create interview-assigned notification",
+			"error", err, "interviewer_id", interviewerID, "interview_id", interviewID)
 	}
 }
 
-func FeedbackSubmitted(ctx context.Context, s *store.Store, schedulerID, loopID int64, focusArea string) {
+func FeedbackSubmitted(ctx context.Context, s Notifier, schedulerID, loopID int64, focusArea string) {
 	if err := s.CreateNotification(ctx, &models.Notification{
 		UserID:  schedulerID,
 		Message: fmt.Sprintf("Feedback submitted for %s interview", focusArea),
 		Link:    fmt.Sprintf("/loops/%d/debrief", loopID),
 	}); err != nil {
-		log.Printf("failed to create notification: %v", err)
+		slog.ErrorContext(ctx, "failed to create feedback-submitted notification",
+			"error", err, "scheduler_id", schedulerID, "loop_id", loopID)
 	}
 }
 
-func CheckDebriefReady(ctx context.Context, s *store.Store, loop *models.InterviewLoop) {
-	interviews, err := s.ListInterviewsByLoop(ctx, loop.ID, 200, 0)
-	if err != nil || len(interviews) == 0 {
+func CheckDebriefReady(ctx context.Context, s Notifier, loop *models.InterviewLoop) {
+	incomplete, err := s.CountIncompleteInterviews(ctx, loop.ID)
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to count incomplete interviews",
+			"error", err, "loop_id", loop.ID)
 		return
 	}
-	for _, iv := range interviews {
-		if iv.Status != "complete" {
-			return
-		}
+	if incomplete > 0 {
+		return
 	}
 	if err := s.CreateNotification(ctx, &models.Notification{
 		UserID:  loop.CreatedBy,
 		Message: "All feedback submitted — ready for debrief",
 		Link:    fmt.Sprintf("/loops/%d/debrief", loop.ID),
 	}); err != nil {
-		log.Printf("failed to create notification: %v", err)
+		slog.ErrorContext(ctx, "failed to create debrief-ready notification",
+			"error", err, "loop_id", loop.ID)
 	}
 }

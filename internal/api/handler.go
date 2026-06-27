@@ -1,22 +1,24 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"hire/internal/store"
-	"log"
+	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 )
 
 type Handler struct {
-	store       *store.Store
+	store       Store
 	jwtSecret   []byte
 	corsOrigins []string
 }
 
-func NewHandler(s *store.Store, jwtSecret string, corsOrigins []string) *Handler {
+func NewHandler(s Store, jwtSecret string, corsOrigins []string) *Handler {
 	return &Handler{store: s, jwtSecret: []byte(jwtSecret), corsOrigins: corsOrigins}
 }
 
@@ -35,8 +37,13 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
 
-func writeInternalError(w http.ResponseWriter, err error) {
-	log.Printf("internal error: %v", err)
+func writeInternalError(w http.ResponseWriter, r *http.Request, err error) {
+	slog.ErrorContext(r.Context(), "internal error",
+		"error", err,
+		"method", r.Method,
+		"path", r.URL.Path,
+		"request_id", RequestID(r.Context()),
+	)
 	writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 }
 
@@ -58,6 +65,15 @@ func validateEnum(value, name string, allowed []string) error {
 	return fmt.Errorf("%s must be one of: %s", name, strings.Join(allowed, ", "))
 }
 
+var emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+func validateEmail(email string) error {
+	if !emailRegexp.MatchString(email) {
+		return fmt.Errorf("invalid email format")
+	}
+	return nil
+}
+
 func parsePagination(r *http.Request) (limit, offset int) {
 	limit = 50
 	offset = 0
@@ -72,4 +88,10 @@ func parsePagination(r *http.Request) (limit, offset int) {
 		}
 	}
 	return
+}
+
+func generateRequestID() string {
+	b := make([]byte, 8)
+	rand.Read(b)
+	return hex.EncodeToString(b)
 }

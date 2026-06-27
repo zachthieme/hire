@@ -32,10 +32,14 @@ func (h *Handler) CreateInterview(w http.ResponseWriter, r *http.Request) {
 	}
 	iv.LoopID = loopID
 	if iv.Status == "" {
-		iv.Status = "pending"
+		iv.Status = models.InterviewStatusPending
+	}
+	if err := validateEnum(iv.Status, "status", models.ValidInterviewStatuses); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
 	}
 	if err := h.store.CreateInterview(r.Context(), &iv); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	notify.InterviewAssigned(r.Context(), h.store, iv.InterviewerID, iv.ID, iv.FocusArea)
@@ -53,7 +57,7 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "interview not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -62,8 +66,12 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	existing.InterviewerID = updates.InterviewerID
-	existing.FocusArea = updates.FocusArea
+	if updates.InterviewerID != 0 {
+		existing.InterviewerID = updates.InterviewerID
+	}
+	if updates.FocusArea != "" {
+		existing.FocusArea = updates.FocusArea
+	}
 	existing.ScheduledAt = updates.ScheduledAt
 	existing.VideoLink = updates.VideoLink
 	existing.NotesForInterviewer = updates.NotesForInterviewer
@@ -71,7 +79,7 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -85,7 +93,7 @@ func (h *Handler) DeleteInterview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteInterview(r.Context(), id); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -96,7 +104,7 @@ func (h *Handler) ListMyInterviews(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	list, err := h.store.ListInterviewsByUser(r.Context(), userID, limit, offset)
 	if err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)

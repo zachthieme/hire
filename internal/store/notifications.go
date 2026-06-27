@@ -42,7 +42,10 @@ func (s *Store) MarkNotificationRead(ctx context.Context, id, userID int64) erro
 	if err != nil {
 		return err
 	}
-	rows, _ := res.RowsAffected()
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
 	if rows == 0 {
 		return ErrNotFound
 	}

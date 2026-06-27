@@ -4,6 +4,7 @@ import (
 	"context"
 	"hire/internal/models"
 	"testing"
+	"time"
 )
 
 func createTestUserAndCandidate(t *testing.T, s *Store) (*models.User, *models.Candidate) {
@@ -66,5 +67,32 @@ func TestUpdateLoop(t *testing.T) {
 	got, _ := s.GetLoop(context.Background(), loop.ID)
 	if got.Status != "complete" || *got.FinalDecision != "hire" {
 		t.Errorf("got status=%q decision=%v", got.Status, got.FinalDecision)
+	}
+}
+
+func TestGetLoopDetail(t *testing.T) {
+	s := newTestStore(t)
+	u, c := createTestUserAndCandidate(t, s)
+	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "active", CreatedBy: u.ID}
+	s.CreateLoop(context.Background(), loop)
+
+	iv := &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"}
+	s.CreateInterview(context.Background(), iv)
+
+	detail, err := s.GetLoopDetail(context.Background(), loop.ID)
+	if err != nil {
+		t.Fatalf("GetLoopDetail: %v", err)
+	}
+	if detail.Candidate.Name != "Candidate" {
+		t.Errorf("candidate name = %q", detail.Candidate.Name)
+	}
+	if len(detail.Interviews) != 1 {
+		t.Fatalf("got %d interviews, want 1", len(detail.Interviews))
+	}
+	if detail.Interviews[0].FocusArea != "coding" {
+		t.Errorf("focus_area = %q, want coding", detail.Interviews[0].FocusArea)
+	}
+	if detail.Interviews[0].InterviewerName != "Sched" {
+		t.Errorf("interviewer_name = %q, want Sched", detail.Interviews[0].InterviewerName)
 	}
 }

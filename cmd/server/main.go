@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,16 +20,24 @@ import (
 )
 
 func main() {
+	// Configure structured JSON logging for production
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})))
+
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		log.Fatal("DATABASE_URL is required")
+		slog.Error("DATABASE_URL is required")
+		os.Exit(1)
 	}
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET is required")
+		slog.Error("JWT_SECRET is required")
+		os.Exit(1)
 	}
 	if len(jwtSecret) < 32 {
-		log.Fatal("JWT_SECRET must be at least 32 characters")
+		slog.Error("JWT_SECRET must be at least 32 characters")
+		os.Exit(1)
 	}
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -45,15 +53,18 @@ func main() {
 	// Run migrations
 	mig, err := migrate.New("file://migrations", databaseURL)
 	if err != nil {
-		log.Fatalf("Failed to create migrator: %v", err)
+		slog.Error("failed to create migrator", "error", err)
+		os.Exit(1)
 	}
 	if err := mig.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Failed to run migrations: %v", err)
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
 	}
 
 	s, err := store.New(databaseURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer s.Close()
 
@@ -68,7 +79,7 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
-	fmt.Printf("Server listening on %s\n", addr)
+	slog.Info("server starting", "addr", addr)
 
 	// Graceful shutdown
 	done := make(chan os.Signal, 1)
@@ -76,16 +87,19 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			slog.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
 	<-done
-	fmt.Println("Shutting down...")
+	fmt.Println() // newline after ^C
+	slog.Info("shutting down")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Shutdown error: %v", err)
+		slog.Error("shutdown error", "error", err)
+		os.Exit(1)
 	}
-	fmt.Println("Server stopped")
+	slog.Info("server stopped")
 }

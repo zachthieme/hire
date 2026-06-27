@@ -20,12 +20,12 @@ func (h *Handler) CreateCompetency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := validateEnum(c.RatingType, "rating_type", []string{"levels", "stars"}); err != nil {
+	if err := validateEnum(c.RatingType, "rating_type", models.ValidRatingTypes); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := h.store.CreateCompetency(r.Context(), &c); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, c)
@@ -42,7 +42,7 @@ func (h *Handler) GetCompetency(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "competency not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
@@ -53,7 +53,7 @@ func (h *Handler) ListCompetencies(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	list, err := h.store.ListCompetencies(r.Context(), limit, offset)
 	if err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -65,21 +65,42 @@ func (h *Handler) UpdateCompetency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	var c models.Competency
-	if err := readJSON(r, &c); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid body")
-		return
-	}
-	c.ID = id
-	if err := h.store.UpdateCompetency(r.Context(), &c); err != nil {
+	existing, err := h.store.GetCompetency(r.Context(), id)
+	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "not found")
+			writeError(w, http.StatusNotFound, "competency not found")
 		} else {
-			writeInternalError(w, err)
+			writeInternalError(w, r, err)
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, c)
+	var updates models.Competency
+	if err := readJSON(r, &updates); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if updates.Name != "" {
+		existing.Name = updates.Name
+	}
+	if updates.RatingType != "" {
+		if err := validateEnum(updates.RatingType, "rating_type", models.ValidRatingTypes); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		existing.RatingType = updates.RatingType
+	}
+	if updates.RatingsJSON != "" {
+		existing.RatingsJSON = updates.RatingsJSON
+	}
+	if err := h.store.UpdateCompetency(r.Context(), existing); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+		} else {
+			writeInternalError(w, r, err)
+		}
+		return
+	}
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *Handler) DeleteCompetency(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +110,7 @@ func (h *Handler) DeleteCompetency(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteCompetency(r.Context(), id); err != nil {
-		writeInternalError(w, err)
+		writeInternalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

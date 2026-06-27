@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ type contextKey string
 
 const userIDKey contextKey = "user_id"
 const userRoleKey contextKey = "user_role"
+const requestIDKey contextKey = "request_id"
 
 func UserID(ctx context.Context) int64 {
 	v, _ := ctx.Value(userIDKey).(int64)
@@ -24,6 +26,29 @@ func UserRole(ctx context.Context) string {
 	return v
 }
 
+func RequestID(ctx context.Context) string {
+	v, _ := ctx.Value(requestIDKey).(string)
+	return v
+}
+
+// Claims is the typed JWT claims structure.
+type Claims struct {
+	jwt.RegisteredClaims
+	Role string `json:"role"`
+}
+
+func (h *Handler) RequestIDMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rid := r.Header.Get("X-Request-ID")
+		if rid == "" {
+			rid = generateRequestID()
+		}
+		w.Header().Set("X-Request-ID", rid)
+		ctx := context.WithValue(r.Context(), requestIDKey, rid)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth := r.Header.Get("Authorization")
@@ -33,23 +58,19 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		}
 		tokenStr := strings.TrimPrefix(auth, "Bearer ")
 
-		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (any, error) {
+		claims := &Claims{}
+		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
 			return h.jwtSecret, nil
-		}, jwt.WithValidMethods([]string{"HS256"}))
+		})
 		if err != nil || !token.Valid {
 			writeError(w, http.StatusUnauthorized, "invalid token")
 			return
 		}
 
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "invalid claims")
-			return
-		}
-
 		uid, _ := claims.GetSubject()
-		role, _ := claims["role"].(string)
-
 		userID, err := strconv.ParseInt(uid, 10, 64)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "invalid token subject")
@@ -57,7 +78,7 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), userIDKey, userID)
-		ctx = context.WithValue(ctx, userRoleKey, role)
+		ctx = context.WithValue(ctx, userRoleKey, claims.Role)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

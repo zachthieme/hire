@@ -16,7 +16,7 @@ logs:
 
 # Run tests (requires running db: docker compose up db -d)
 test:
-	DATABASE_URL=postgres://hire:devpassword@localhost:$(DB_PORT)/hire_test?sslmode=disable go test ./internal/... -v
+	DATABASE_URL=postgres://hire:devpassword@localhost:$(DB_PORT)/hire_test?sslmode=disable go test -p 1 ./internal/... -v
 
 # Seed demo data (requires running db)
 seed:
