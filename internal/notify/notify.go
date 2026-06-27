@@ -29,7 +29,7 @@ func FeedbackSubmitted(ctx context.Context, s *store.Store, schedulerID, loopID 
 }
 
 func CheckDebriefReady(ctx context.Context, s *store.Store, loop *models.InterviewLoop) {
-	interviews, err := s.ListInterviewsByLoop(ctx, loop.ID)
+	interviews, err := s.ListInterviewsByLoop(ctx, loop.ID, 200, 0)
 	if err != nil || len(interviews) == 0 {
 		return
 	}

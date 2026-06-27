@@ -75,9 +75,13 @@ export default function LoopEditor() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant={iv.status === 'complete' ? 'default' : 'outline'}>{iv.status}</Badge>
-                <Button variant="ghost" size="sm" onClick={() => deleteInterview.mutate(iv.id)}>
-                  <Trash2 className="h-4 w-4 text-red-500" />
-                </Button>
+                {iv.status !== 'complete' && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    if (confirm('Remove this interview from the loop?')) deleteInterview.mutate(iv.id)
+                  }}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

@@ -140,10 +140,14 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		existing.Recommendation = updates.Recommendation
 	}
-	existing.Recommendation = updates.Recommendation
-	existing.RecommendationReason = updates.RecommendationReason
-	existing.FreeFormNotes = updates.FreeFormNotes
+	if updates.RecommendationReason != "" {
+		existing.RecommendationReason = updates.RecommendationReason
+	}
+	if updates.FreeFormNotes != "" {
+		existing.FreeFormNotes = updates.FreeFormNotes
+	}
 	if err := h.store.UpdateFeedback(r.Context(), existing); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
