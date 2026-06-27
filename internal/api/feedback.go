@@ -1,8 +1,10 @@
 package api
 
 import (
+	"errors"
 	"hire/internal/models"
 	"hire/internal/notify"
+	"hire/internal/store"
 	"net/http"
 	"strconv"
 
@@ -20,23 +22,31 @@ func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 	role := UserRole(r.Context())
 	userID := UserID(r.Context())
 	if role == "interviewer" {
-		iv, err := h.store.GetInterview(interviewID)
+		iv, err := h.store.GetInterview(r.Context(), interviewID)
 		if err != nil {
-			writeError(w, http.StatusNotFound, "interview not found")
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, http.StatusNotFound, "interview not found")
+			} else {
+				writeError(w, http.StatusInternalServerError, err.Error())
+			}
 			return
 		}
 		// If not their own interview, check if they've submitted feedback for this loop
 		if iv.InterviewerID != userID {
-			if !h.store.HasUserSubmittedFeedbackForLoop(iv.LoopID, userID) {
+			if !h.store.HasUserSubmittedFeedbackForLoop(r.Context(), iv.LoopID, userID) {
 				writeError(w, http.StatusForbidden, "submit your feedback first")
 				return
 			}
 		}
 	}
 
-	fb, err := h.store.GetFeedbackByInterview(interviewID)
+	fb, err := h.store.GetFeedbackByInterview(r.Context(), interviewID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "feedback not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "feedback not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, fb)
@@ -50,9 +60,13 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify this interview belongs to the current user
-	iv, err := h.store.GetInterview(interviewID)
+	iv, err := h.store.GetInterview(r.Context(), interviewID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "interview not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "interview not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	if iv.InterviewerID != UserID(r.Context()) && UserRole(r.Context()) == "interviewer" {
@@ -70,15 +84,15 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fb.InterviewID = interviewID
-	if err := h.store.CreateFeedback(&fb); err != nil {
+	if err := h.store.CreateFeedback(r.Context(), &fb); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	loop, _ := h.store.GetLoop(iv.LoopID)
+	loop, _ := h.store.GetLoop(r.Context(), iv.LoopID)
 	if loop != nil {
-		notify.FeedbackSubmitted(h.store, loop.CreatedBy, iv.LoopID, iv.FocusArea)
-		notify.CheckDebriefReady(h.store, loop)
+		notify.FeedbackSubmitted(r.Context(), h.store, loop.CreatedBy, iv.LoopID, iv.FocusArea)
+		notify.CheckDebriefReady(r.Context(), h.store, loop)
 	}
 
 	writeJSON(w, http.StatusCreated, fb)
@@ -90,14 +104,18 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	existing, err := h.store.GetFeedback(id)
+	existing, err := h.store.GetFeedback(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "feedback not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "feedback not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 
 	// Authorization: verify the caller owns this feedback
-	iv, err := h.store.GetInterview(existing.InterviewID)
+	iv, err := h.store.GetInterview(r.Context(), existing.InterviewID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to verify ownership")
 		return
@@ -115,8 +133,12 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 	existing.Recommendation = updates.Recommendation
 	existing.RecommendationReason = updates.RecommendationReason
 	existing.FreeFormNotes = updates.FreeFormNotes
-	if err := h.store.UpdateFeedback(existing); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	if err := h.store.UpdateFeedback(r.Context(), existing); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, existing)

@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"hire/internal/models"
+	"hire/internal/store"
 	"net/http"
 	"strconv"
 
@@ -22,7 +24,7 @@ func (h *Handler) CreateCompetency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := h.store.CreateCompetency(&c); err != nil {
+	if err := h.store.CreateCompetency(r.Context(), &c); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -35,16 +37,21 @@ func (h *Handler) GetCompetency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	c, err := h.store.GetCompetency(id)
+	c, err := h.store.GetCompetency(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "competency not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "competency not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
 }
 
 func (h *Handler) ListCompetencies(w http.ResponseWriter, r *http.Request) {
-	list, err := h.store.ListCompetencies()
+	limit, offset := parsePagination(r)
+	list, err := h.store.ListCompetencies(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -64,8 +71,12 @@ func (h *Handler) UpdateCompetency(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.ID = id
-	if err := h.store.UpdateCompetency(&c); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	if err := h.store.UpdateCompetency(r.Context(), &c); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
@@ -77,7 +88,7 @@ func (h *Handler) DeleteCompetency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := h.store.DeleteCompetency(id); err != nil {
+	if err := h.store.DeleteCompetency(r.Context(), id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

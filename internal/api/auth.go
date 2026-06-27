@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"hire/internal/store"
 	"net/http"
 	"time"
 
@@ -22,6 +24,7 @@ func (h *Handler) generateToken(userID int64, role string) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":  fmt.Sprintf("%d", userID),
 		"role": role,
+		"iat":  time.Now().Unix(),
 		"exp":  time.Now().Add(24 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -38,15 +41,20 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.store.GetUserByEmail(req.Email)
+	user, err := h.store.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "invalid credentials")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusUnauthorized, "invalid credentials")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	if !CheckPassword(user.PasswordHash, req.Password) {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
+	user.PasswordHash = ""
 
 	token, err := h.generateToken(user.ID, user.Role)
 	if err != nil {

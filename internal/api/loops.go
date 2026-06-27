@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"hire/internal/models"
+	"hire/internal/store"
 	"net/http"
 	"strconv"
 
@@ -22,7 +24,7 @@ func (h *Handler) CreateLoop(w http.ResponseWriter, r *http.Request) {
 	if l.Status == "" {
 		l.Status = "scheduling"
 	}
-	if err := h.store.CreateLoop(&l); err != nil {
+	if err := h.store.CreateLoop(r.Context(), &l); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -35,9 +37,13 @@ func (h *Handler) GetLoopDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	detail, err := h.store.GetLoopDetail(id)
+	detail, err := h.store.GetLoopDetail(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "loop not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "loop not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 
@@ -45,7 +51,7 @@ func (h *Handler) GetLoopDetail(w http.ResponseWriter, r *http.Request) {
 	role := UserRole(r.Context())
 	userID := UserID(r.Context())
 	if role == "interviewer" {
-		hasSubmitted := h.store.HasUserSubmittedFeedbackForLoop(detail.ID, userID)
+		hasSubmitted := h.store.HasUserSubmittedFeedbackForLoop(r.Context(), detail.ID, userID)
 		if !hasSubmitted {
 			for i := range detail.Interviews {
 				if detail.Interviews[i].InterviewerID != userID {
@@ -72,7 +78,7 @@ func (h *Handler) ListLoops(w http.ResponseWriter, r *http.Request) {
 	}
 
 	limit, offset := parsePagination(r)
-	loops, err := h.store.ListLoops(candidateID, status, limit, offset)
+	loops, err := h.store.ListLoops(r.Context(), candidateID, status, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -86,9 +92,13 @@ func (h *Handler) UpdateLoop(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	existing, err := h.store.GetLoop(id)
+	existing, err := h.store.GetLoop(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "loop not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "loop not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	var updates models.InterviewLoop
@@ -103,8 +113,12 @@ func (h *Handler) UpdateLoop(w http.ResponseWriter, r *http.Request) {
 	existing.Status = updates.Status
 	existing.FinalDecision = updates.FinalDecision
 	existing.DebriefNotes = updates.DebriefNotes
-	if err := h.store.UpdateLoop(existing); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	if err := h.store.UpdateLoop(r.Context(), existing); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, existing)
@@ -116,7 +130,7 @@ func (h *Handler) DeleteLoop(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := h.store.DeleteLoop(id); err != nil {
+	if err := h.store.DeleteLoop(r.Context(), id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

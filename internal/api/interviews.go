@@ -1,8 +1,10 @@
 package api
 
 import (
+	"errors"
 	"hire/internal/models"
 	"hire/internal/notify"
+	"hire/internal/store"
 	"net/http"
 	"strconv"
 
@@ -32,11 +34,11 @@ func (h *Handler) CreateInterview(w http.ResponseWriter, r *http.Request) {
 	if iv.Status == "" {
 		iv.Status = "pending"
 	}
-	if err := h.store.CreateInterview(&iv); err != nil {
+	if err := h.store.CreateInterview(r.Context(), &iv); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	notify.InterviewAssigned(h.store, iv.InterviewerID, iv.ID, iv.FocusArea)
+	notify.InterviewAssigned(r.Context(), h.store, iv.InterviewerID, iv.ID, iv.FocusArea)
 	writeJSON(w, http.StatusCreated, iv)
 }
 
@@ -46,9 +48,13 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	existing, err := h.store.GetInterview(id)
+	existing, err := h.store.GetInterview(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "interview not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "interview not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	var updates models.Interview
@@ -61,8 +67,12 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 	existing.ScheduledAt = updates.ScheduledAt
 	existing.VideoLink = updates.VideoLink
 	existing.NotesForInterviewer = updates.NotesForInterviewer
-	if err := h.store.UpdateInterview(existing); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	if err := h.store.UpdateInterview(r.Context(), existing); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, existing)
@@ -74,7 +84,7 @@ func (h *Handler) DeleteInterview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := h.store.DeleteInterview(id); err != nil {
+	if err := h.store.DeleteInterview(r.Context(), id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -83,7 +93,7 @@ func (h *Handler) DeleteInterview(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListMyInterviews(w http.ResponseWriter, r *http.Request) {
 	userID := UserID(r.Context())
-	list, err := h.store.ListInterviewsByUser(userID)
+	list, err := h.store.ListInterviewsByUser(r.Context(), userID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
