@@ -14,11 +14,11 @@ logs:
 
 # Run tests (requires running db: docker compose up db -d)
 test:
-	DATABASE_URL=postgres://hire:devpassword@localhost:5432/hire_test?sslmode=disable go test ./internal/... -v
+	DATABASE_URL=postgres://hire:devpassword@localhost:5433/hire_test?sslmode=disable go test ./internal/... -v
 
 # Seed demo data (requires running db)
 seed:
-	DATABASE_URL=postgres://hire:devpassword@localhost:5432/hire?sslmode=disable go run ./seed/seed.go
+	DATABASE_URL=postgres://hire:devpassword@localhost:5433/hire?sslmode=disable go run ./seed/seed.go
 
 # Create a new migration
 migrate-new:
