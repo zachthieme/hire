@@ -34,12 +34,12 @@ func (s *Store) GetInterview(ctx context.Context, id int64) (*models.Interview, 
 
 func (s *Store) ListInterviewsByLoop(ctx context.Context, loopID int64) ([]*models.Interview, error) {
 	return s.queryInterviews(ctx, `SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at
-		FROM interviews WHERE loop_id = $1 ORDER BY scheduled_at`, loopID)
+		FROM interviews WHERE loop_id = $1 ORDER BY scheduled_at LIMIT 100`, loopID)
 }
 
 func (s *Store) ListInterviewsByUser(ctx context.Context, userID int64) ([]*models.Interview, error) {
 	return s.queryInterviews(ctx, `SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at
-		FROM interviews WHERE interviewer_id = $1 ORDER BY scheduled_at DESC`, userID)
+		FROM interviews WHERE interviewer_id = $1 ORDER BY scheduled_at DESC LIMIT 100`, userID)
 }
 
 func (s *Store) UpdateInterview(ctx context.Context, iv *models.Interview) error {

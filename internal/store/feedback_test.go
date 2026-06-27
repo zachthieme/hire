@@ -66,7 +66,11 @@ func TestHasUserSubmittedFeedbackForLoop(t *testing.T) {
 	iv := &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"}
 	s.CreateInterview(context.Background(), iv)
 
-	if s.HasUserSubmittedFeedbackForLoop(context.Background(), loop.ID, u.ID) {
+	submitted, err := s.HasUserSubmittedFeedbackForLoop(context.Background(), loop.ID, u.ID)
+	if err != nil {
+		t.Fatalf("HasUserSubmittedFeedbackForLoop: %v", err)
+	}
+	if submitted {
 		t.Fatal("should not have submitted feedback yet")
 	}
 
@@ -75,7 +79,11 @@ func TestHasUserSubmittedFeedbackForLoop(t *testing.T) {
 		Recommendation: "hire",
 	})
 
-	if !s.HasUserSubmittedFeedbackForLoop(context.Background(), loop.ID, u.ID) {
+	submitted, err = s.HasUserSubmittedFeedbackForLoop(context.Background(), loop.ID, u.ID)
+	if err != nil {
+		t.Fatalf("HasUserSubmittedFeedbackForLoop: %v", err)
+	}
+	if !submitted {
 		t.Fatal("should have submitted feedback")
 	}
 }

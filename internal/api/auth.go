@@ -46,7 +46,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusUnauthorized, "invalid credentials")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}

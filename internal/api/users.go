@@ -38,7 +38,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	u := &models.User{Email: req.Email, Name: req.Name, PasswordHash: hash, Role: req.Role}
 	if err := h.store.CreateUser(r.Context(), u); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, u)
@@ -48,7 +48,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	users, err := h.store.ListUsers(r.Context(), limit, offset)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, users)
@@ -65,7 +65,7 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -83,7 +83,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -95,21 +95,24 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	existing.Email = req.Email
 	existing.Name = req.Name
 	existing.Role = req.Role
+	if err := h.store.UpdateUser(r.Context(), existing); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+		} else {
+			writeInternalError(w, err)
+		}
+		return
+	}
 	if req.Password != "" {
 		hash, err := HashPassword(req.Password)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "password hash failed")
 			return
 		}
-		existing.PasswordHash = hash
-	}
-	if err := h.store.UpdateUser(r.Context(), existing); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			writeError(w, http.StatusNotFound, "not found")
-		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+		if err := h.store.UpdateUserPassword(r.Context(), id, hash); err != nil {
+			writeInternalError(w, err)
+			return
 		}
-		return
 	}
 	writeJSON(w, http.StatusOK, existing)
 }
@@ -121,7 +124,7 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteUser(r.Context(), id); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -134,7 +137,7 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "user not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}

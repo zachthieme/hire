@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"hire/internal/api"
@@ -66,5 +69,23 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 	fmt.Printf("Server listening on %s\n", addr)
-	log.Fatal(srv.ListenAndServe())
+
+	// Graceful shutdown
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+
+	<-done
+	fmt.Println("Shutting down...")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("Shutdown error: %v", err)
+	}
+	fmt.Println("Server stopped")
 }
