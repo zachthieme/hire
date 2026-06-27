@@ -115,14 +115,17 @@ func (s *Store) UpdateFeedback(ctx context.Context, fb *models.Feedback) error {
 	return tx.Commit()
 }
 
-func (s *Store) HasUserSubmittedFeedbackForLoop(ctx context.Context, loopID, userID int64) bool {
+func (s *Store) HasUserSubmittedFeedbackForLoop(ctx context.Context, loopID, userID int64) (bool, error) {
 	var count int
-	s.db.QueryRowContext(ctx,
+	err := s.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM feedback f
 		 JOIN interviews i ON f.interview_id = i.id
 		 WHERE i.loop_id = $1 AND i.interviewer_id = $2`, loopID, userID,
 	).Scan(&count)
-	return count > 0
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (s *Store) listCompetencyRatings(ctx context.Context, feedbackID int64) ([]models.CompetencyRating, error) {

@@ -35,7 +35,7 @@ func (h *Handler) CreateInterview(w http.ResponseWriter, r *http.Request) {
 		iv.Status = "pending"
 	}
 	if err := h.store.CreateInterview(r.Context(), &iv); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	notify.InterviewAssigned(r.Context(), h.store, iv.InterviewerID, iv.ID, iv.FocusArea)
@@ -53,7 +53,7 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "interview not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -71,7 +71,7 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -85,7 +85,7 @@ func (h *Handler) DeleteInterview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteInterview(r.Context(), id); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -95,7 +95,7 @@ func (h *Handler) ListMyInterviews(w http.ResponseWriter, r *http.Request) {
 	userID := UserID(r.Context())
 	list, err := h.store.ListInterviewsByUser(r.Context(), userID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)

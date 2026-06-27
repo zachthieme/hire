@@ -27,13 +27,18 @@ func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(err, store.ErrNotFound) {
 				writeError(w, http.StatusNotFound, "interview not found")
 			} else {
-				writeError(w, http.StatusInternalServerError, err.Error())
+				writeInternalError(w, err)
 			}
 			return
 		}
 		// If not their own interview, check if they've submitted feedback for this loop
 		if iv.InterviewerID != userID {
-			if !h.store.HasUserSubmittedFeedbackForLoop(r.Context(), iv.LoopID, userID) {
+			submitted, err := h.store.HasUserSubmittedFeedbackForLoop(r.Context(), iv.LoopID, userID)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "internal error")
+				return
+			}
+			if !submitted {
 				writeError(w, http.StatusForbidden, "submit your feedback first")
 				return
 			}
@@ -45,7 +50,7 @@ func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "feedback not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -65,7 +70,7 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "interview not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -85,7 +90,7 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 	}
 	fb.InterviewID = interviewID
 	if err := h.store.CreateFeedback(r.Context(), &fb); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 
@@ -109,7 +114,7 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "feedback not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -130,6 +135,12 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if updates.Recommendation != "" {
+		if err := validateEnum(updates.Recommendation, "recommendation", []string{"strong_hire", "hire", "no_hire", "strong_no_hire"}); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	existing.Recommendation = updates.Recommendation
 	existing.RecommendationReason = updates.RecommendationReason
 	existing.FreeFormNotes = updates.FreeFormNotes
@@ -137,7 +148,7 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}

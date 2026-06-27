@@ -25,7 +25,7 @@ func (h *Handler) CreateCompetency(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.CreateCompetency(r.Context(), &c); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, c)
@@ -42,7 +42,7 @@ func (h *Handler) GetCompetency(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "competency not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -53,7 +53,7 @@ func (h *Handler) ListCompetencies(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
 	list, err := h.store.ListCompetencies(r.Context(), limit, offset)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -75,7 +75,7 @@ func (h *Handler) UpdateCompetency(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeInternalError(w, err)
 		}
 		return
 	}
@@ -89,7 +89,7 @@ func (h *Handler) DeleteCompetency(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.DeleteCompetency(r.Context(), id); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+		writeInternalError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hire/internal/store"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -32,6 +33,11 @@ func readJSON(r *http.Request, v any) error {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+func writeInternalError(w http.ResponseWriter, err error) {
+	log.Printf("internal error: %v", err)
+	writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 }
 
 func validateRequired(fields map[string]string) error {

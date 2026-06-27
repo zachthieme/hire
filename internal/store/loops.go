@@ -162,14 +162,44 @@ func (s *Store) GetLoopDetail(ctx context.Context, id int64) (*models.LoopDetail
 			if err := fbRows.Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt); err != nil {
 				return nil, err
 			}
-			// Load competency ratings for this feedback
-			ratings, err := s.listCompetencyRatings(ctx, fb.ID)
+			if iwf, ok := interviewMap[fb.InterviewID]; ok {
+				iwf.Feedback = &fb
+			}
+		}
+
+		// Batch-fetch all competency ratings
+		var feedbackIDs []int64
+		for _, iwf := range detail.Interviews {
+			if iwf.Feedback != nil {
+				feedbackIDs = append(feedbackIDs, iwf.Feedback.ID)
+			}
+		}
+		if len(feedbackIDs) > 0 {
+			crPlaceholders := make([]string, len(feedbackIDs))
+			crArgs := make([]any, len(feedbackIDs))
+			for i, fid := range feedbackIDs {
+				crPlaceholders[i] = fmt.Sprintf("$%d", i+1)
+				crArgs[i] = fid
+			}
+			crRows, err := s.db.QueryContext(ctx,
+				`SELECT id, feedback_id, competency_id, rating_value FROM competency_ratings WHERE feedback_id IN (`+strings.Join(crPlaceholders, ",")+`)`,
+				crArgs...,
+			)
 			if err != nil {
 				return nil, fmt.Errorf("list competency ratings: %w", err)
 			}
-			fb.CompetencyRatings = ratings
-			if iwf, ok := interviewMap[fb.InterviewID]; ok {
-				iwf.Feedback = &fb
+			defer crRows.Close()
+			for crRows.Next() {
+				var cr models.CompetencyRating
+				if err := crRows.Scan(&cr.ID, &cr.FeedbackID, &cr.CompetencyID, &cr.RatingValue); err != nil {
+					return nil, err
+				}
+				for i := range detail.Interviews {
+					if detail.Interviews[i].Feedback != nil && detail.Interviews[i].Feedback.ID == cr.FeedbackID {
+						detail.Interviews[i].Feedback.CompetencyRatings = append(detail.Interviews[i].Feedback.CompetencyRatings, cr)
+						break
+					}
+				}
 			}
 		}
 	}

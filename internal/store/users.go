@@ -61,8 +61,23 @@ func (s *Store) ListUsers(ctx context.Context, limit, offset int) ([]*models.Use
 
 func (s *Store) UpdateUser(ctx context.Context, u *models.User) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE users SET email = $1, name = $2, password_hash = $3, role = $4 WHERE id = $5`,
-		u.Email, u.Name, u.PasswordHash, u.Role, u.ID,
+		`UPDATE users SET email = $1, name = $2, role = $3 WHERE id = $4`,
+		u.Email, u.Name, u.Role, u.ID,
+	)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) UpdateUserPassword(ctx context.Context, id int64, passwordHash string) error {
+	res, err := s.db.ExecContext(ctx,
+		`UPDATE users SET password_hash = $1 WHERE id = $2`,
+		passwordHash, id,
 	)
 	if err != nil {
 		return err
