@@ -19,7 +19,7 @@ services:
     build: .
     environment:
       DATABASE_URL: postgres://hire:${DB_PASSWORD:-devpassword}@db:5432/hire?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me-at-least-32chars}
       PORT: "8080"
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3001}
     ports:
