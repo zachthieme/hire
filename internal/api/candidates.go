@@ -64,19 +64,37 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	var c models.Candidate
-	if err := readJSON(r, &c); err != nil {
+	existing, err := h.store.GetCandidate(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+		} else {
+			writeInternalError(w, err)
+		}
+		return
+	}
+	var updates models.Candidate
+	if err := readJSON(r, &updates); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if c.Status != "" {
-		if err := validateEnum(c.Status, "status", []string{"active", "hired", "rejected", "withdrawn"}); err != nil {
+	if updates.Status != "" {
+		if err := validateEnum(updates.Status, "status", []string{"active", "hired", "rejected", "withdrawn"}); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		existing.Status = updates.Status
 	}
-	c.ID = id
-	if err := h.store.UpdateCandidate(r.Context(), &c); err != nil {
+	if updates.Name != "" {
+		existing.Name = updates.Name
+	}
+	if updates.Email != "" {
+		existing.Email = updates.Email
+	}
+	if updates.ResumeURL != "" {
+		existing.ResumeURL = updates.ResumeURL
+	}
+	if err := h.store.UpdateCandidate(r.Context(), existing); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")
 		} else {
@@ -84,7 +102,7 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeJSON(w, http.StatusOK, c)
+	writeJSON(w, http.StatusOK, existing)
 }
 
 func (h *Handler) DeleteCandidate(w http.ResponseWriter, r *http.Request) {

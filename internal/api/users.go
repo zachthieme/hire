@@ -92,9 +92,19 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	existing.Email = req.Email
-	existing.Name = req.Name
-	existing.Role = req.Role
+	if req.Role != "" {
+		if err := validateEnum(req.Role, "role", []string{"admin", "scheduler", "interviewer"}); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		existing.Role = req.Role
+	}
+	if req.Email != "" {
+		existing.Email = req.Email
+	}
+	if req.Name != "" {
+		existing.Name = req.Name
+	}
 	if err := h.store.UpdateUser(r.Context(), existing); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")

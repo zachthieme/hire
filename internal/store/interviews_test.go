@@ -47,7 +47,7 @@ func TestListInterviewsByLoop(t *testing.T) {
 	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"})
 	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "design", ScheduledAt: time.Now(), Status: "pending"})
 
-	list, err := s.ListInterviewsByLoop(context.Background(), loop.ID)
+	list, err := s.ListInterviewsByLoop(context.Background(), loop.ID, 50, 0)
 	if err != nil {
 		t.Fatalf("ListInterviewsByLoop: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestListInterviewsByUser(t *testing.T) {
 
 	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"})
 
-	list, err := s.ListInterviewsByUser(context.Background(), u.ID)
+	list, err := s.ListInterviewsByUser(context.Background(), u.ID, 50, 0)
 	if err != nil {
 		t.Fatalf("ListInterviewsByUser: %v", err)
 	}

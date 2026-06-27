@@ -93,7 +93,8 @@ func (h *Handler) DeleteInterview(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListMyInterviews(w http.ResponseWriter, r *http.Request) {
 	userID := UserID(r.Context())
-	list, err := h.store.ListInterviewsByUser(r.Context(), userID)
+	limit, offset := parsePagination(r)
+	list, err := h.store.ListInterviewsByUser(r.Context(), userID, limit, offset)
 	if err != nil {
 		writeInternalError(w, err)
 		return
