@@ -11,7 +11,7 @@ import { Plus } from 'lucide-react'
 
 export default function CandidatesList() {
   const queryClient = useQueryClient()
-  const { data: cands = [] } = useQuery({ queryKey: ['candidates'], queryFn: candApi.list })
+  const { data: cands = [] } = useQuery({ queryKey: ['candidates'], queryFn: () => candApi.list() })
   const createCand = useMutation({
     mutationFn: (data: Partial<Candidate>) => candApi.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['candidates'] }); setOpen(false); resetForm() },

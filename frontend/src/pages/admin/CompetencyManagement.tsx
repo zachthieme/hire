@@ -11,7 +11,7 @@ import { Trash2, Plus } from 'lucide-react'
 
 export default function CompetencyManagement() {
   const queryClient = useQueryClient()
-  const { data: comps = [] } = useQuery({ queryKey: ['competencies'], queryFn: compApi.list })
+  const { data: comps = [] } = useQuery({ queryKey: ['competencies'], queryFn: () => compApi.list() })
   const createComp = useMutation({
     mutationFn: (data: Partial<Competency>) => compApi.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['competencies'] }); setOpen(false) },

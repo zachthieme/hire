@@ -17,7 +17,7 @@ export default function LoopEditor() {
   const queryClient = useQueryClient()
 
   const { data: loop } = useQuery({ queryKey: ['loops', loopId], queryFn: () => loopsApi.get(loopId) })
-  const { data: userList = [] } = useQuery({ queryKey: ['users'], queryFn: usersApi.list })
+  const { data: userList = [] } = useQuery({ queryKey: ['users'], queryFn: () => usersApi.list() })
   const interviewers = userList.filter(u => u.role === 'interviewer')
 
   const createInterview = useMutation({
