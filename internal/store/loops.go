@@ -22,9 +22,9 @@ func (s *Store) CreateLoop(ctx context.Context, l *models.InterviewLoop) error {
 func (s *Store) GetLoop(ctx context.Context, id int64) (*models.InterviewLoop, error) {
 	var l models.InterviewLoop
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at
+		`SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at, updated_at
 		 FROM interview_loops WHERE id = $1`, id,
-	).Scan(&l.ID, &l.CandidateID, &l.Status, &l.FinalDecision, &l.DebriefNotes, &l.CreatedBy, &l.CreatedAt)
+	).Scan(&l.ID, &l.CandidateID, &l.Status, &l.FinalDecision, &l.DebriefNotes, &l.CreatedBy, &l.CreatedAt, &l.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -32,7 +32,7 @@ func (s *Store) GetLoop(ctx context.Context, id int64) (*models.InterviewLoop, e
 }
 
 func (s *Store) ListLoops(ctx context.Context, candidateID *int64, status *string, limit, offset int) ([]*models.InterviewLoop, error) {
-	query := `SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at FROM interview_loops WHERE 1=1`
+	query := `SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at, updated_at FROM interview_loops WHERE 1=1`
 	var args []any
 	paramIdx := 1
 	if candidateID != nil {
@@ -56,7 +56,7 @@ func (s *Store) ListLoops(ctx context.Context, candidateID *int64, status *strin
 	var out []*models.InterviewLoop
 	for rows.Next() {
 		var l models.InterviewLoop
-		if err := rows.Scan(&l.ID, &l.CandidateID, &l.Status, &l.FinalDecision, &l.DebriefNotes, &l.CreatedBy, &l.CreatedAt); err != nil {
+		if err := rows.Scan(&l.ID, &l.CandidateID, &l.Status, &l.FinalDecision, &l.DebriefNotes, &l.CreatedBy, &l.CreatedAt, &l.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, &l)
@@ -66,7 +66,7 @@ func (s *Store) ListLoops(ctx context.Context, candidateID *int64, status *strin
 
 func (s *Store) UpdateLoop(ctx context.Context, l *models.InterviewLoop) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE interview_loops SET status = $1, final_decision = $2, debrief_notes = $3 WHERE id = $4`,
+		`UPDATE interview_loops SET status = $1, final_decision = $2, debrief_notes = $3, updated_at = NOW() WHERE id = $4`,
 		l.Status, l.FinalDecision, l.DebriefNotes, l.ID,
 	)
 	if err != nil {
@@ -111,7 +111,7 @@ func (s *Store) GetLoopDetail(ctx context.Context, id int64) (*models.LoopDetail
 	// Fetch interviews with interviewer names in one query
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT i.id, i.loop_id, i.interviewer_id, i.focus_area, i.scheduled_at, i.video_link,
-		        i.notes_for_interviewer, i.status, i.created_at, u.name
+		        i.notes_for_interviewer, i.status, i.created_at, i.updated_at, u.name
 		 FROM interviews i
 		 JOIN users u ON i.interviewer_id = u.id
 		 WHERE i.loop_id = $1
@@ -133,7 +133,7 @@ func (s *Store) GetLoopDetail(ctx context.Context, id int64) (*models.LoopDetail
 		var iwf models.InterviewWithFeedback
 		if err := rows.Scan(
 			&iwf.ID, &iwf.LoopID, &iwf.InterviewerID, &iwf.FocusArea, &iwf.ScheduledAt,
-			&iwf.VideoLink, &iwf.NotesForInterviewer, &iwf.Status, &iwf.CreatedAt,
+			&iwf.VideoLink, &iwf.NotesForInterviewer, &iwf.Status, &iwf.CreatedAt, &iwf.UpdatedAt,
 			&iwf.InterviewerName,
 		); err != nil {
 			return nil, err
@@ -155,7 +155,7 @@ func (s *Store) GetLoopDetail(ctx context.Context, id int64) (*models.LoopDetail
 			args[i] = id
 		}
 		fbRows, err := s.db.QueryContext(ctx,
-			`SELECT f.id, f.interview_id, f.recommendation, f.recommendation_reason, f.free_form_notes, f.submitted_at
+			`SELECT f.id, f.interview_id, f.recommendation, f.recommendation_reason, f.free_form_notes, f.submitted_at, f.updated_at
 			 FROM feedback f WHERE f.interview_id IN (`+strings.Join(placeholders, ",")+`)`, args...,
 		)
 		if err != nil {
@@ -165,7 +165,7 @@ func (s *Store) GetLoopDetail(ctx context.Context, id int64) (*models.LoopDetail
 
 		for fbRows.Next() {
 			var fb models.Feedback
-			if err := fbRows.Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt); err != nil {
+			if err := fbRows.Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt); err != nil {
 				return nil, err
 			}
 			if iwf, ok := interviewMap[fb.InterviewID]; ok {

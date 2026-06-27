@@ -118,6 +118,12 @@ func (h *Handler) UpdateLoop(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if updates.Status != existing.Status {
+		if err := validateTransition(existing.Status, updates.Status, "loop", models.ValidLoopTransitions); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	existing.Status = updates.Status
 	existing.FinalDecision = updates.FinalDecision
 	existing.DebriefNotes = updates.DebriefNotes

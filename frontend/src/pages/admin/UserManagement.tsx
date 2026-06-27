@@ -12,13 +12,16 @@ import { Trash2, Plus } from 'lucide-react'
 export default function UserManagement() {
   const queryClient = useQueryClient()
   const { data: userList = [] } = useQuery({ queryKey: ['users'], queryFn: () => usersApi.list() })
+  const [error, setError] = useState('')
   const createUser = useMutation({
     mutationFn: (data: CreateUserReq) => usersApi.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setOpen(false); resetForm() },
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['users'] }); setOpen(false); resetForm() },
+    onError: (err: Error) => setError(err.message),
   })
   const deleteUser = useMutation({
     mutationFn: usersApi.delete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['users'] }) },
+    onError: (err: Error) => setError(err.message),
   })
 
   const [open, setOpen] = useState(false)
@@ -59,7 +62,8 @@ export default function UserManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full">Create</Button>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <Button type="submit" className="w-full" disabled={createUser.isPending}>{createUser.isPending ? 'Creating...' : 'Create'}</Button>
             </form>
           </DialogContent>
         </Dialog>

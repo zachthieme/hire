@@ -90,7 +90,8 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fb.InterviewID = interviewID
-	if err := h.store.CreateFeedback(r.Context(), &fb); err != nil {
+	debriefReady, err := h.store.CreateFeedback(r.Context(), &fb)
+	if err != nil {
 		writeInternalError(w, r, err)
 		return
 	}
@@ -101,7 +102,9 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 			"error", err, "loop_id", iv.LoopID, "request_id", RequestID(r.Context()))
 	} else {
 		notify.FeedbackSubmitted(r.Context(), h.store, loop.CreatedBy, iv.LoopID, iv.FocusArea)
-		notify.CheckDebriefReady(r.Context(), h.store, loop)
+		if debriefReady {
+			notify.DebriefReady(r.Context(), h.store, loop)
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, fb)

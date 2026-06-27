@@ -15,8 +15,33 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     headers,
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (res.status === 401 && token && path !== '/auth/login') {
-    // Token expired or invalid — clear auth and redirect to login
+  if (res.status === 401 && token && path !== '/auth/login' && path !== '/auth/refresh') {
+    // Try to refresh the token
+    try {
+      const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      if (refreshRes.ok) {
+        const data = await refreshRes.json()
+        localStorage.setItem('token', data.token)
+        // Retry original request with new token
+        const retryHeaders = { ...headers, 'Authorization': `Bearer ${data.token}` }
+        const retryRes = await fetch(`${API_BASE}${path}`, {
+          method,
+          headers: retryHeaders,
+          body: body ? JSON.stringify(body) : undefined,
+        })
+        if (retryRes.status === 204) return undefined as T
+        if (!retryRes.ok) {
+          const err = await retryRes.json().catch(() => ({ error: retryRes.statusText }))
+          throw new Error(err.error || retryRes.statusText)
+        }
+        return retryRes.json()
+      }
+    } catch {
+      // Refresh failed — fall through to logout
+    }
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     window.location.href = '/login'
@@ -35,6 +60,7 @@ export const auth = {
   login: (email: string, password: string) =>
     request<{ token: string; user: User }>('POST', '/auth/login', { email, password }),
   me: () => request<User>('GET', '/me'),
+  refresh: () => request<{ token: string }>('POST', '/auth/refresh'),
 }
 
 // Users

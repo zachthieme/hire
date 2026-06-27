@@ -31,13 +31,15 @@ export default function DebriefView() {
     }
   }, [loop])
 
+  const [error, setError] = useState('')
   const updateLoop = useMutation({
     mutationFn: () => loopsApi.update(loopId, {
       status: 'complete',
       final_decision: decision,
       debrief_notes: notes,
     }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loops', loopId] }),
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['loops', loopId] }) },
+    onError: (err: Error) => setError(err.message),
   })
 
   if (!loop) return <div>Loading...</div>
@@ -122,7 +124,8 @@ export default function DebriefView() {
               placeholder="Summary of debrief discussion..."
             />
           </div>
-          <Button onClick={() => updateLoop.mutate()}>Save Decision</Button>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <Button onClick={() => updateLoop.mutate()} disabled={updateLoop.isPending}>{updateLoop.isPending ? 'Saving...' : 'Save Decision'}</Button>
         </CardContent>
       </Card>
     </div>

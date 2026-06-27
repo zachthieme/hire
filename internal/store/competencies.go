@@ -21,8 +21,8 @@ func (s *Store) CreateCompetency(ctx context.Context, c *models.Competency) erro
 func (s *Store) GetCompetency(ctx context.Context, id int64) (*models.Competency, error) {
 	var c models.Competency
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, rating_type, ratings_json, created_at FROM competencies WHERE id = $1`, id,
-	).Scan(&c.ID, &c.Name, &c.RatingType, &c.RatingsJSON, &c.CreatedAt)
+		`SELECT id, name, rating_type, ratings_json, created_at, updated_at FROM competencies WHERE id = $1`, id,
+	).Scan(&c.ID, &c.Name, &c.RatingType, &c.RatingsJSON, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -31,7 +31,7 @@ func (s *Store) GetCompetency(ctx context.Context, id int64) (*models.Competency
 
 func (s *Store) ListCompetencies(ctx context.Context, limit, offset int) ([]*models.Competency, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, rating_type, ratings_json, created_at FROM competencies ORDER BY id LIMIT $1 OFFSET $2`, limit, offset,
+		`SELECT id, name, rating_type, ratings_json, created_at, updated_at FROM competencies ORDER BY id LIMIT $1 OFFSET $2`, limit, offset,
 	)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (s *Store) ListCompetencies(ctx context.Context, limit, offset int) ([]*mod
 	var out []*models.Competency
 	for rows.Next() {
 		var c models.Competency
-		if err := rows.Scan(&c.ID, &c.Name, &c.RatingType, &c.RatingsJSON, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.RatingType, &c.RatingsJSON, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, &c)
@@ -50,7 +50,7 @@ func (s *Store) ListCompetencies(ctx context.Context, limit, offset int) ([]*mod
 
 func (s *Store) UpdateCompetency(ctx context.Context, c *models.Competency) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE competencies SET name = $1, rating_type = $2, ratings_json = $3 WHERE id = $4`,
+		`UPDATE competencies SET name = $1, rating_type = $2, ratings_json = $3, updated_at = NOW() WHERE id = $4`,
 		c.Name, c.RatingType, c.RatingsJSON, c.ID,
 	)
 	if err != nil {

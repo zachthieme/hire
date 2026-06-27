@@ -154,3 +154,24 @@ func TestRequestIDMiddleware(t *testing.T) {
 		t.Errorf("context request_id = %q, header = %q", resp["request_id"], rid)
 	}
 }
+
+func TestSecurityHeaders(t *testing.T) {
+	h, _ := newTestHandler(t)
+	r := h.Router()
+
+	req := httptest.NewRequest("GET", "/healthz", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	expected := map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":       "DENY",
+		"X-XSS-Protection":      "1; mode=block",
+	}
+	for header, want := range expected {
+		got := w.Header().Get(header)
+		if got != want {
+			t.Errorf("header %s = %q, want %q", header, got, want)
+		}
+	}
+}

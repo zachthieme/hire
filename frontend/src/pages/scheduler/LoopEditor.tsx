@@ -20,13 +20,16 @@ export default function LoopEditor() {
   const { data: userList = [] } = useQuery({ queryKey: ['users'], queryFn: () => usersApi.list() })
   const interviewers = userList.filter(u => u.role === 'interviewer')
 
+  const [error, setError] = useState('')
   const createInterview = useMutation({
     mutationFn: (data: any) => ivApi.createInLoop(loopId, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loops', loopId] }),
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['loops', loopId] }) },
+    onError: (err: Error) => setError(err.message),
   })
   const deleteInterview = useMutation({
     mutationFn: ivApi.delete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['loops', loopId] }),
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['loops', loopId] }) },
+    onError: (err: Error) => setError(err.message),
   })
 
   const [showForm, setShowForm] = useState(false)
@@ -121,8 +124,9 @@ export default function LoopEditor() {
               <Label>Notes for Interviewer</Label>
               <Textarea value={form.notes_for_interviewer} onChange={e => setForm({ ...form, notes_for_interviewer: e.target.value })} />
             </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">
-              <Button onClick={handleAdd}>Add Interview</Button>
+              <Button onClick={handleAdd} disabled={createInterview.isPending}>{createInterview.isPending ? 'Adding...' : 'Add Interview'}</Button>
               <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
             </div>
           </CardContent>

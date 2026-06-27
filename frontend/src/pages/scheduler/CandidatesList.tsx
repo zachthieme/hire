@@ -12,9 +12,11 @@ import { Plus } from 'lucide-react'
 export default function CandidatesList() {
   const queryClient = useQueryClient()
   const { data: cands = [] } = useQuery({ queryKey: ['candidates'], queryFn: () => candApi.list() })
+  const [error, setError] = useState('')
   const createCand = useMutation({
     mutationFn: (data: Partial<Candidate>) => candApi.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['candidates'] }); setOpen(false); resetForm() },
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['candidates'] }); setOpen(false); resetForm() },
+    onError: (err: Error) => setError(err.message),
   })
 
   const [open, setOpen] = useState(false)
@@ -51,7 +53,8 @@ export default function CandidatesList() {
                 <Label>Resume URL</Label>
                 <Input value={form.resume_url} onChange={e => setForm({ ...form, resume_url: e.target.value })} />
               </div>
-              <Button type="submit" className="w-full">Create</Button>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <Button type="submit" className="w-full" disabled={createCand.isPending}>{createCand.isPending ? 'Creating...' : 'Create'}</Button>
             </form>
           </DialogContent>
         </Dialog>

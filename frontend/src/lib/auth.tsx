@@ -46,6 +46,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Refresh token every 20 minutes to keep session alive
+  useEffect(() => {
+    if (!token) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await authApi.refresh()
+        localStorage.setItem('token', res.token)
+        setToken(res.token)
+      } catch {
+        logout()
+      }
+    }, 20 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [token, logout])
+
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated: !!token }}>
       {children}

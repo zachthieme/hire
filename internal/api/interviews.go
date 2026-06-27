@@ -75,6 +75,19 @@ func (h *Handler) UpdateInterview(w http.ResponseWriter, r *http.Request) {
 	existing.ScheduledAt = updates.ScheduledAt
 	existing.VideoLink = updates.VideoLink
 	existing.NotesForInterviewer = updates.NotesForInterviewer
+	if updates.Status != "" {
+		if err := validateEnum(updates.Status, "status", models.ValidInterviewStatuses); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if updates.Status != existing.Status {
+			if err := validateTransition(existing.Status, updates.Status, "interview", models.ValidInterviewTransitions); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+		}
+		existing.Status = updates.Status
+	}
 	if err := h.store.UpdateInterview(r.Context(), existing); err != nil {
 		if errors.Is(err, store.ErrNotFound) {
 			writeError(w, http.StatusNotFound, "not found")

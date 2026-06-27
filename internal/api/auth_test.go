@@ -89,6 +89,33 @@ func TestLoginWrongPassword(t *testing.T) {
 	}
 }
 
+func TestRefreshToken(t *testing.T) {
+	h, s := newTestHandler(t)
+	hash, _ := HashPassword("password123")
+	u := &models.User{Email: "test@test.com", Name: "Test", PasswordHash: hash, Role: "interviewer"}
+	s.CreateUser(context.Background(), u)
+
+	token, _ := h.generateToken(u.ID, u.Role)
+
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	r.Post("/api/auth/refresh", h.RefreshToken)
+
+	req := httptest.NewRequest("POST", "/api/auth/refresh", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+	var resp map[string]any
+	json.Unmarshal(w.Body.Bytes(), &resp)
+	if resp["token"] == nil || resp["token"] == "" {
+		t.Fatal("expected new token in response")
+	}
+}
+
 func TestAuthMiddleware(t *testing.T) {
 	h, s := newTestHandler(t)
 	hash, _ := HashPassword("pass")

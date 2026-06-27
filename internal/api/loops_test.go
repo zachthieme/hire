@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"hire/internal/models"
 	"net/http"
 	"net/http/httptest"
@@ -105,5 +106,32 @@ func TestCreateLoopValidation(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestUpdateLoopInvalidTransition(t *testing.T) {
+	h, s := newTestHandler(t)
+	hash, _ := HashPassword("pass")
+	sched := &models.User{Email: "sched@test.com", Name: "Sched", PasswordHash: hash, Role: "scheduler"}
+	s.CreateUser(context.Background(), sched)
+	schedToken, _ := h.generateToken(sched.ID, sched.Role)
+
+	c := &models.Candidate{Name: "Jane", Email: "jane@test.com", Status: "active"}
+	s.CreateCandidate(context.Background(), c)
+	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "scheduling", CreatedBy: sched.ID}
+	s.CreateLoop(context.Background(), loop)
+
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	r.Put("/api/loops/{id}", h.UpdateLoop)
+
+	// Try to jump from scheduling directly to complete (should fail)
+	body, _ := json.Marshal(map[string]string{"status": "complete"})
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/api/loops/%d", loop.ID), bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+schedToken)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body: %s", w.Code, w.Body.String())
 	}
 }

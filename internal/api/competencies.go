@@ -24,6 +24,10 @@ func (h *Handler) CreateCompetency(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := validateRatingsJSON(c.RatingsJSON, c.RatingType); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err := h.store.CreateCompetency(r.Context(), &c); err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -90,6 +94,10 @@ func (h *Handler) UpdateCompetency(w http.ResponseWriter, r *http.Request) {
 		existing.RatingType = updates.RatingType
 	}
 	if updates.RatingsJSON != "" {
+		if err := validateRatingsJSON(updates.RatingsJSON, existing.RatingType); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		existing.RatingsJSON = updates.RatingsJSON
 	}
 	if err := h.store.UpdateCompetency(r.Context(), existing); err != nil {

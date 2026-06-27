@@ -22,10 +22,10 @@ func (s *Store) CreateInterview(ctx context.Context, iv *models.Interview) error
 func (s *Store) GetInterview(ctx context.Context, id int64) (*models.Interview, error) {
 	var iv models.Interview
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at
+		`SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at, updated_at
 		 FROM interviews WHERE id = $1`, id,
 	).Scan(&iv.ID, &iv.LoopID, &iv.InterviewerID, &iv.FocusArea, &iv.ScheduledAt, &iv.VideoLink,
-		&iv.NotesForInterviewer, &iv.Status, &iv.CreatedAt)
+		&iv.NotesForInterviewer, &iv.Status, &iv.CreatedAt, &iv.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -33,18 +33,18 @@ func (s *Store) GetInterview(ctx context.Context, id int64) (*models.Interview, 
 }
 
 func (s *Store) ListInterviewsByLoop(ctx context.Context, loopID int64, limit, offset int) ([]*models.Interview, error) {
-	return s.queryInterviews(ctx, `SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at
+	return s.queryInterviews(ctx, `SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at, updated_at
 		FROM interviews WHERE loop_id = $1 ORDER BY scheduled_at LIMIT $2 OFFSET $3`, loopID, limit, offset)
 }
 
 func (s *Store) ListInterviewsByUser(ctx context.Context, userID int64, limit, offset int) ([]*models.Interview, error) {
-	return s.queryInterviews(ctx, `SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at
+	return s.queryInterviews(ctx, `SELECT id, loop_id, interviewer_id, focus_area, scheduled_at, video_link, notes_for_interviewer, status, created_at, updated_at
 		FROM interviews WHERE interviewer_id = $1 ORDER BY scheduled_at DESC LIMIT $2 OFFSET $3`, userID, limit, offset)
 }
 
 func (s *Store) UpdateInterview(ctx context.Context, iv *models.Interview) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE interviews SET interviewer_id = $1, focus_area = $2, scheduled_at = $3, video_link = $4, notes_for_interviewer = $5, status = $6
+		`UPDATE interviews SET interviewer_id = $1, focus_area = $2, scheduled_at = $3, video_link = $4, notes_for_interviewer = $5, status = $6, updated_at = NOW()
 		 WHERE id = $7`,
 		iv.InterviewerID, iv.FocusArea, iv.ScheduledAt, iv.VideoLink, iv.NotesForInterviewer, iv.Status, iv.ID,
 	)
@@ -79,7 +79,7 @@ func (s *Store) DeleteInterview(ctx context.Context, id int64) error {
 func (s *Store) CountIncompleteInterviews(ctx context.Context, loopID int64) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM interviews WHERE loop_id = $1 AND status != 'complete'`, loopID,
+		`SELECT COUNT(*) FROM interviews WHERE loop_id = $1 AND status != $2`, loopID, models.InterviewStatusComplete,
 	).Scan(&count)
 	return count, err
 }
@@ -94,7 +94,7 @@ func (s *Store) queryInterviews(ctx context.Context, query string, args ...any) 
 	for rows.Next() {
 		var iv models.Interview
 		if err := rows.Scan(&iv.ID, &iv.LoopID, &iv.InterviewerID, &iv.FocusArea, &iv.ScheduledAt,
-			&iv.VideoLink, &iv.NotesForInterviewer, &iv.Status, &iv.CreatedAt); err != nil {
+			&iv.VideoLink, &iv.NotesForInterviewer, &iv.Status, &iv.CreatedAt, &iv.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, &iv)

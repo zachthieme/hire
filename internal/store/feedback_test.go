@@ -28,7 +28,7 @@ func TestCreateAndGetFeedback(t *testing.T) {
 			{CompetencyID: comp.ID, RatingValue: "Owning"},
 		},
 	}
-	if err := s.CreateFeedback(context.Background(), fb); err != nil {
+	if _, err := s.CreateFeedback(context.Background(), fb); err != nil {
 		t.Fatalf("CreateFeedback: %v", err)
 	}
 	if fb.ID == 0 {
@@ -74,7 +74,7 @@ func TestHasUserSubmittedFeedbackForLoop(t *testing.T) {
 		t.Fatal("should not have submitted feedback yet")
 	}
 
-	s.CreateFeedback(context.Background(), &models.Feedback{
+	s.CreateFeedback(context.Background(), &models.Feedback{ //nolint:errcheck
 		InterviewID:    iv.ID,
 		Recommendation: "hire",
 	})

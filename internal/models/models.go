@@ -42,6 +42,19 @@ const (
 // ValidInterviewStatuses is the set of allowed interview statuses.
 var ValidInterviewStatuses = []string{InterviewStatusPending, InterviewStatusComplete}
 
+// ValidLoopTransitions defines allowed status transitions for interview loops.
+var ValidLoopTransitions = map[string][]string{
+	LoopStatusScheduling: {LoopStatusActive},
+	LoopStatusActive:     {LoopStatusComplete},
+	LoopStatusComplete:   {}, // terminal
+}
+
+// ValidInterviewTransitions defines allowed status transitions for interviews.
+var ValidInterviewTransitions = map[string][]string{
+	InterviewStatusPending:  {InterviewStatusComplete},
+	InterviewStatusComplete: {}, // terminal — feedback has been submitted
+}
+
 // Feedback recommendations.
 const (
 	RecommendationStrongHire   = "strong_hire"
@@ -69,6 +82,7 @@ type User struct {
 	PasswordHash string    `json:"-"`
 	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Candidate struct {
@@ -78,6 +92,7 @@ type Candidate struct {
 	ResumeURL string    `json:"resume_url"`
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type InterviewLoop struct {
@@ -88,6 +103,7 @@ type InterviewLoop struct {
 	DebriefNotes  *string   `json:"debrief_notes"`
 	CreatedBy     int64     `json:"created_by"`
 	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Interview struct {
@@ -100,6 +116,7 @@ type Interview struct {
 	NotesForInterviewer string    `json:"notes_for_interviewer"`
 	Status              string    `json:"status"`
 	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 type Feedback struct {
@@ -109,6 +126,7 @@ type Feedback struct {
 	RecommendationReason string             `json:"recommendation_reason"`
 	FreeFormNotes        string             `json:"free_form_notes"`
 	SubmittedAt          time.Time          `json:"submitted_at"`
+	UpdatedAt            time.Time          `json:"updated_at"`
 	CompetencyRatings    []CompetencyRating `json:"competency_ratings,omitempty"`
 }
 
@@ -118,6 +136,7 @@ type Competency struct {
 	RatingType  string    `json:"rating_type"`
 	RatingsJSON string    `json:"ratings_json"`
 	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type CompetencyRating struct {

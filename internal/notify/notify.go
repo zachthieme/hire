@@ -10,7 +10,6 @@ import (
 // Notifier defines the store operations needed by the notification helpers.
 type Notifier interface {
 	CreateNotification(ctx context.Context, n *models.Notification) error
-	CountIncompleteInterviews(ctx context.Context, loopID int64) (int, error)
 }
 
 func InterviewAssigned(ctx context.Context, s Notifier, interviewerID, interviewID int64, focusArea string) {
@@ -35,16 +34,7 @@ func FeedbackSubmitted(ctx context.Context, s Notifier, schedulerID, loopID int6
 	}
 }
 
-func CheckDebriefReady(ctx context.Context, s Notifier, loop *models.InterviewLoop) {
-	incomplete, err := s.CountIncompleteInterviews(ctx, loop.ID)
-	if err != nil {
-		slog.ErrorContext(ctx, "failed to count incomplete interviews",
-			"error", err, "loop_id", loop.ID)
-		return
-	}
-	if incomplete > 0 {
-		return
-	}
+func DebriefReady(ctx context.Context, s Notifier, loop *models.InterviewLoop) {
 	if err := s.CreateNotification(ctx, &models.Notification{
 		UserID:  loop.CreatedBy,
 		Message: "All feedback submitted — ready for debrief",

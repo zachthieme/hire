@@ -12,6 +12,30 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+func TestCreateCandidateInvalidResumeURL(t *testing.T) {
+	h, s := newTestHandler(t)
+	hash, _ := HashPassword("pass")
+	sched := &models.User{Email: "sched@test.com", Name: "Sched", PasswordHash: hash, Role: "scheduler"}
+	s.CreateUser(context.Background(), sched)
+	schedToken, _ := h.generateToken(sched.ID, sched.Role)
+
+	r := chi.NewRouter()
+	r.Use(h.AuthMiddleware)
+	r.Use(h.RequireRole("scheduler", "admin"))
+	r.Post("/api/candidates", h.CreateCandidate)
+
+	body, _ := json.Marshal(map[string]string{
+		"name": "Jane", "email": "jane@test.com", "resume_url": "javascript:alert(1)",
+	})
+	req := httptest.NewRequest("POST", "/api/candidates", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+schedToken)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body: %s", w.Code, w.Body.String())
+	}
+}
+
 func TestCandidateCRUD(t *testing.T) {
 	h, s := newTestHandler(t)
 	hash, _ := HashPassword("pass")

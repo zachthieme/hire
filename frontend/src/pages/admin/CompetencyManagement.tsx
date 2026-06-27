@@ -12,13 +12,16 @@ import { Trash2, Plus } from 'lucide-react'
 export default function CompetencyManagement() {
   const queryClient = useQueryClient()
   const { data: comps = [] } = useQuery({ queryKey: ['competencies'], queryFn: () => compApi.list() })
+  const [error, setError] = useState('')
   const createComp = useMutation({
     mutationFn: (data: Partial<Competency>) => compApi.create(data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['competencies'] }); setOpen(false) },
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['competencies'] }); setOpen(false) },
+    onError: (err: Error) => setError(err.message),
   })
   const deleteComp = useMutation({
     mutationFn: compApi.delete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['competencies'] }),
+    onSuccess: () => { setError(''); queryClient.invalidateQueries({ queryKey: ['competencies'] }) },
+    onError: (err: Error) => setError(err.message),
   })
 
   const [open, setOpen] = useState(false)
@@ -78,7 +81,8 @@ export default function CompetencyManagement() {
                   <Input type="number" value={starsMax} onChange={e => setStarsMax(e.target.value)} min="2" max="10" />
                 </div>
               )}
-              <Button onClick={handleCreate} className="w-full">Create</Button>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+              <Button onClick={handleCreate} className="w-full" disabled={createComp.isPending}>{createComp.isPending ? 'Creating...' : 'Create'}</Button>
             </div>
           </DialogContent>
         </Dialog>

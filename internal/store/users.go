@@ -21,8 +21,8 @@ func (s *Store) CreateUser(ctx context.Context, u *models.User) error {
 func (s *Store) GetUserByID(ctx context.Context, id int64) (*models.User, error) {
 	var u models.User
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, email, name, role, created_at FROM users WHERE id = $1`, id,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.CreatedAt)
+		`SELECT id, email, name, role, created_at, updated_at FROM users WHERE id = $1`, id,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -32,8 +32,8 @@ func (s *Store) GetUserByID(ctx context.Context, id int64) (*models.User, error)
 func (s *Store) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	var u models.User
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, email, name, password_hash, role, created_at FROM users WHERE email = $1`, email,
-	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.CreatedAt)
+		`SELECT id, email, name, password_hash, role, created_at, updated_at FROM users WHERE email = $1`, email,
+	).Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.Role, &u.CreatedAt, &u.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -42,7 +42,7 @@ func (s *Store) GetUserByEmail(ctx context.Context, email string) (*models.User,
 
 func (s *Store) ListUsers(ctx context.Context, limit, offset int) ([]*models.User, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, email, name, role, created_at FROM users ORDER BY id LIMIT $1 OFFSET $2`, limit, offset,
+		`SELECT id, email, name, role, created_at, updated_at FROM users ORDER BY id LIMIT $1 OFFSET $2`, limit, offset,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
@@ -51,7 +51,7 @@ func (s *Store) ListUsers(ctx context.Context, limit, offset int) ([]*models.Use
 	var users []*models.User
 	for rows.Next() {
 		var u models.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Role, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, &u)
@@ -61,7 +61,7 @@ func (s *Store) ListUsers(ctx context.Context, limit, offset int) ([]*models.Use
 
 func (s *Store) UpdateUser(ctx context.Context, u *models.User) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE users SET email = $1, name = $2, role = $3 WHERE id = $4`,
+		`UPDATE users SET email = $1, name = $2, role = $3, updated_at = NOW() WHERE id = $4`,
 		u.Email, u.Name, u.Role, u.ID,
 	)
 	if err != nil {
@@ -79,7 +79,7 @@ func (s *Store) UpdateUser(ctx context.Context, u *models.User) error {
 
 func (s *Store) UpdateUserPassword(ctx context.Context, id int64, passwordHash string) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE users SET password_hash = $1 WHERE id = $2`,
+		`UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
 		passwordHash, id,
 	)
 	if err != nil {

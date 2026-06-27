@@ -7,10 +7,10 @@ import (
 	"hire/internal/models"
 )
 
-func (s *Store) CreateFeedback(ctx context.Context, fb *models.Feedback) error {
+func (s *Store) CreateFeedback(ctx context.Context, fb *models.Feedback) (bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer tx.Rollback()
 
@@ -19,7 +19,7 @@ func (s *Store) CreateFeedback(ctx context.Context, fb *models.Feedback) error {
 		fb.InterviewID, fb.Recommendation, fb.RecommendationReason, fb.FreeFormNotes,
 	).Scan(&fb.ID)
 	if err != nil {
-		return fmt.Errorf("insert feedback: %w", err)
+		return false, fmt.Errorf("insert feedback: %w", err)
 	}
 
 	for i := range fb.CompetencyRatings {
@@ -30,24 +30,39 @@ func (s *Store) CreateFeedback(ctx context.Context, fb *models.Feedback) error {
 			cr.FeedbackID, cr.CompetencyID, cr.RatingValue,
 		).Scan(&cr.ID)
 		if err != nil {
-			return fmt.Errorf("insert competency rating: %w", err)
+			return false, fmt.Errorf("insert competency rating: %w", err)
 		}
 	}
 
 	// Mark the interview as complete
-	if _, err := tx.ExecContext(ctx, `UPDATE interviews SET status = 'complete' WHERE id = $1`, fb.InterviewID); err != nil {
-		return fmt.Errorf("mark interview complete: %w", err)
+	if _, err := tx.ExecContext(ctx, `UPDATE interviews SET status = $1, updated_at = NOW() WHERE id = $2`, models.InterviewStatusComplete, fb.InterviewID); err != nil {
+		return false, fmt.Errorf("mark interview complete: %w", err)
 	}
 
-	return tx.Commit()
+	// Atomically check if all interviews in this loop are now complete
+	var loopID int64
+	if err := tx.QueryRowContext(ctx, `SELECT loop_id FROM interviews WHERE id = $1`, fb.InterviewID).Scan(&loopID); err != nil {
+		return false, fmt.Errorf("get loop_id: %w", err)
+	}
+	var incompleteCount int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM interviews WHERE loop_id = $1 AND status != $2`, loopID, models.InterviewStatusComplete,
+	).Scan(&incompleteCount); err != nil {
+		return false, fmt.Errorf("count incomplete: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit: %w", err)
+	}
+	return incompleteCount == 0, nil
 }
 
 func (s *Store) GetFeedback(ctx context.Context, id int64) (*models.Feedback, error) {
 	var fb models.Feedback
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, interview_id, recommendation, recommendation_reason, free_form_notes, submitted_at
+		`SELECT id, interview_id, recommendation, recommendation_reason, free_form_notes, submitted_at, updated_at
 		 FROM feedback WHERE id = $1`, id,
-	).Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt)
+	).Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -61,9 +76,9 @@ func (s *Store) GetFeedback(ctx context.Context, id int64) (*models.Feedback, er
 func (s *Store) GetFeedbackByInterview(ctx context.Context, interviewID int64) (*models.Feedback, error) {
 	var fb models.Feedback
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, interview_id, recommendation, recommendation_reason, free_form_notes, submitted_at
+		`SELECT id, interview_id, recommendation, recommendation_reason, free_form_notes, submitted_at, updated_at
 		 FROM feedback WHERE interview_id = $1`, interviewID,
-	).Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt)
+	).Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -82,7 +97,7 @@ func (s *Store) UpdateFeedback(ctx context.Context, fb *models.Feedback) error {
 	defer tx.Rollback()
 
 	res, err := tx.ExecContext(ctx,
-		`UPDATE feedback SET recommendation = $1, recommendation_reason = $2, free_form_notes = $3 WHERE id = $4`,
+		`UPDATE feedback SET recommendation = $1, recommendation_reason = $2, free_form_notes = $3, updated_at = NOW() WHERE id = $4`,
 		fb.Recommendation, fb.RecommendationReason, fb.FreeFormNotes, fb.ID,
 	)
 	if err != nil {

@@ -15,6 +15,14 @@ func (h *Handler) Router() chi.Router {
 	r.Use(h.RequestIDMiddleware)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.Header().Set("X-Frame-Options", "DENY")
+			w.Header().Set("X-XSS-Protection", "1; mode=block")
+			next.ServeHTTP(w, r)
+		})
+	})
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   h.corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -39,6 +47,7 @@ func (h *Handler) Router() chi.Router {
 
 		// Any authenticated user
 		r.Get("/api/me", h.GetMe)
+		r.Post("/api/auth/refresh", h.RefreshToken)
 		r.Get("/api/me/interviews", h.ListMyInterviews)
 		r.Get("/api/notifications", h.ListNotifications)
 		r.Put("/api/notifications/{id}/read", h.MarkNotificationRead)

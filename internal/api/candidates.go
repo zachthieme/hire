@@ -24,6 +24,12 @@ func (h *Handler) CreateCandidate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if c.ResumeURL != "" {
+		if err := validateURL(c.ResumeURL); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	if c.Status == "" {
 		c.Status = models.CandidateStatusActive
 	}
@@ -104,6 +110,10 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		existing.Email = updates.Email
 	}
 	if updates.ResumeURL != "" {
+		if err := validateURL(updates.ResumeURL); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		existing.ResumeURL = updates.ResumeURL
 	}
 	if err := h.store.UpdateCandidate(r.Context(), existing); err != nil {

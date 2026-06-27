@@ -40,7 +40,7 @@ type Store interface {
 	DeleteInterview(ctx context.Context, id int64) error
 
 	// Feedback
-	CreateFeedback(ctx context.Context, fb *models.Feedback) error
+	CreateFeedback(ctx context.Context, fb *models.Feedback) (bool, error)
 	GetFeedback(ctx context.Context, id int64) (*models.Feedback, error)
 	GetFeedbackByInterview(ctx context.Context, interviewID int64) (*models.Feedback, error)
 	UpdateFeedback(ctx context.Context, fb *models.Feedback) error

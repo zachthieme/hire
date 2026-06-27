@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -74,6 +75,52 @@ func validateEmail(email string) error {
 	return nil
 }
 
+func validateRatingsJSON(ratingsJSON, ratingType string) error {
+	switch ratingType {
+	case "levels":
+		var levels []string
+		if err := json.Unmarshal([]byte(ratingsJSON), &levels); err != nil {
+			return fmt.Errorf("ratings_json must be a JSON array of strings for levels")
+		}
+		if len(levels) == 0 {
+			return fmt.Errorf("ratings_json must be non-empty for levels")
+		}
+		for _, l := range levels {
+			if strings.TrimSpace(l) == "" {
+				return fmt.Errorf("ratings_json must not contain empty strings")
+			}
+		}
+	case "stars":
+		var stars struct {
+			Min int `json:"min"`
+			Max int `json:"max"`
+		}
+		if err := json.Unmarshal([]byte(ratingsJSON), &stars); err != nil {
+			return fmt.Errorf("ratings_json must be a JSON object with min and max for stars")
+		}
+		if stars.Max < 2 {
+			return fmt.Errorf("ratings_json max must be >= 2 for stars")
+		}
+	}
+	return nil
+}
+
+func validateURL(rawURL string) error {
+	if rawURL == "" {
+		return nil
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid URL")
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "", "http", "https":
+		return nil
+	default:
+		return fmt.Errorf("invalid URL scheme: only http and https are allowed")
+	}
+}
+
 func parsePagination(r *http.Request) (limit, offset int) {
 	limit = 50
 	offset = 0
@@ -94,4 +141,17 @@ func generateRequestID() string {
 	b := make([]byte, 8)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func validateTransition(current, proposed, entity string, transitions map[string][]string) error {
+	allowed, ok := transitions[current]
+	if !ok {
+		return fmt.Errorf("unknown current %s status: %s", entity, current)
+	}
+	for _, a := range allowed {
+		if proposed == a {
+			return nil
+		}
+	}
+	return fmt.Errorf("cannot transition %s from %s to %s", entity, current, proposed)
 }
