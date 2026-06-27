@@ -7,21 +7,20 @@ import (
 )
 
 func (s *Store) CreateCompetency(c *models.Competency) error {
-	res, err := s.db.Exec(
-		`INSERT INTO competencies (name, rating_type, ratings_json) VALUES (?, ?, ?)`,
+	err := s.db.QueryRow(
+		`INSERT INTO competencies (name, rating_type, ratings_json) VALUES ($1, $2, $3) RETURNING id`,
 		c.Name, c.RatingType, c.RatingsJSON,
-	)
+	).Scan(&c.ID)
 	if err != nil {
 		return fmt.Errorf("insert competency: %w", err)
 	}
-	c.ID, _ = res.LastInsertId()
 	return nil
 }
 
 func (s *Store) GetCompetency(id int64) (*models.Competency, error) {
 	var c models.Competency
 	err := s.db.QueryRow(
-		`SELECT id, name, rating_type, ratings_json, created_at FROM competencies WHERE id = ?`, id,
+		`SELECT id, name, rating_type, ratings_json, created_at FROM competencies WHERE id = $1`, id,
 	).Scan(&c.ID, &c.Name, &c.RatingType, &c.RatingsJSON, &c.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("competency not found")
@@ -48,13 +47,13 @@ func (s *Store) ListCompetencies() ([]*models.Competency, error) {
 
 func (s *Store) UpdateCompetency(c *models.Competency) error {
 	_, err := s.db.Exec(
-		`UPDATE competencies SET name = ?, rating_type = ?, ratings_json = ? WHERE id = ?`,
+		`UPDATE competencies SET name = $1, rating_type = $2, ratings_json = $3 WHERE id = $4`,
 		c.Name, c.RatingType, c.RatingsJSON, c.ID,
 	)
 	return err
 }
 
 func (s *Store) DeleteCompetency(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM competencies WHERE id = ?`, id)
+	_, err := s.db.Exec(`DELETE FROM competencies WHERE id = $1`, id)
 	return err
 }
