@@ -1,13 +1,14 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"hire/internal/models"
 )
 
-func (s *Store) CreateCandidate(c *models.Candidate) error {
-	err := s.db.QueryRow(
+func (s *Store) CreateCandidate(ctx context.Context, c *models.Candidate) error {
+	err := s.db.QueryRowContext(ctx,
 		`INSERT INTO candidates (name, email, resume_url, status) VALUES ($1, $2, $3, $4) RETURNING id`,
 		c.Name, c.Email, c.ResumeURL, c.Status,
 	).Scan(&c.ID)
@@ -17,19 +18,21 @@ func (s *Store) CreateCandidate(c *models.Candidate) error {
 	return nil
 }
 
-func (s *Store) GetCandidate(id int64) (*models.Candidate, error) {
+func (s *Store) GetCandidate(ctx context.Context, id int64) (*models.Candidate, error) {
 	var c models.Candidate
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(ctx,
 		`SELECT id, name, email, resume_url, status, created_at FROM candidates WHERE id = $1`, id,
 	).Scan(&c.ID, &c.Name, &c.Email, &c.ResumeURL, &c.Status, &c.CreatedAt)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("candidate not found")
+		return nil, ErrNotFound
 	}
 	return &c, err
 }
 
-func (s *Store) ListCandidates(limit, offset int) ([]*models.Candidate, error) {
-	rows, err := s.db.Query(`SELECT id, name, email, resume_url, status, created_at FROM candidates ORDER BY id DESC LIMIT $1 OFFSET $2`, limit, offset)
+func (s *Store) ListCandidates(ctx context.Context, limit, offset int) ([]*models.Candidate, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, name, email, resume_url, status, created_at FROM candidates ORDER BY id DESC LIMIT $1 OFFSET $2`, limit, offset,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -45,15 +48,29 @@ func (s *Store) ListCandidates(limit, offset int) ([]*models.Candidate, error) {
 	return out, rows.Err()
 }
 
-func (s *Store) UpdateCandidate(c *models.Candidate) error {
-	_, err := s.db.Exec(
+func (s *Store) UpdateCandidate(ctx context.Context, c *models.Candidate) error {
+	res, err := s.db.ExecContext(ctx,
 		`UPDATE candidates SET name = $1, email = $2, resume_url = $3, status = $4 WHERE id = $5`,
 		c.Name, c.Email, c.ResumeURL, c.Status, c.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
-func (s *Store) DeleteCandidate(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM candidates WHERE id = $1`, id)
-	return err
+func (s *Store) DeleteCandidate(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM candidates WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

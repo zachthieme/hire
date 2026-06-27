@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"hire/internal/models"
 	"testing"
 	"time"
@@ -10,13 +11,13 @@ func TestCreateAndGetFeedback(t *testing.T) {
 	s := newTestStore(t)
 	u, c := createTestUserAndCandidate(t, s)
 	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "active", CreatedBy: u.ID}
-	s.CreateLoop(loop)
+	s.CreateLoop(context.Background(), loop)
 
 	comp := &models.Competency{Name: "Coding", RatingType: "levels", RatingsJSON: `["Learning","Owning","Advising"]`}
-	s.CreateCompetency(comp)
+	s.CreateCompetency(context.Background(), comp)
 
 	iv := &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"}
-	s.CreateInterview(iv)
+	s.CreateInterview(context.Background(), iv)
 
 	fb := &models.Feedback{
 		InterviewID:          iv.ID,
@@ -27,7 +28,7 @@ func TestCreateAndGetFeedback(t *testing.T) {
 			{CompetencyID: comp.ID, RatingValue: "Owning"},
 		},
 	}
-	if err := s.CreateFeedback(fb); err != nil {
+	if err := s.CreateFeedback(context.Background(), fb); err != nil {
 		t.Fatalf("CreateFeedback: %v", err)
 	}
 	if fb.ID == 0 {
@@ -35,13 +36,13 @@ func TestCreateAndGetFeedback(t *testing.T) {
 	}
 
 	// Interview should be marked complete
-	updatedIV, _ := s.GetInterview(iv.ID)
+	updatedIV, _ := s.GetInterview(context.Background(), iv.ID)
 	if updatedIV.Status != "complete" {
 		t.Errorf("interview status = %q, want complete", updatedIV.Status)
 	}
 
 	// Get feedback with ratings
-	got, err := s.GetFeedbackByInterview(iv.ID)
+	got, err := s.GetFeedbackByInterview(context.Background(), iv.ID)
 	if err != nil {
 		t.Fatalf("GetFeedbackByInterview: %v", err)
 	}
@@ -60,21 +61,21 @@ func TestHasUserSubmittedFeedbackForLoop(t *testing.T) {
 	s := newTestStore(t)
 	u, c := createTestUserAndCandidate(t, s)
 	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "active", CreatedBy: u.ID}
-	s.CreateLoop(loop)
+	s.CreateLoop(context.Background(), loop)
 
 	iv := &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"}
-	s.CreateInterview(iv)
+	s.CreateInterview(context.Background(), iv)
 
-	if s.HasUserSubmittedFeedbackForLoop(loop.ID, u.ID) {
+	if s.HasUserSubmittedFeedbackForLoop(context.Background(), loop.ID, u.ID) {
 		t.Fatal("should not have submitted feedback yet")
 	}
 
-	s.CreateFeedback(&models.Feedback{
+	s.CreateFeedback(context.Background(), &models.Feedback{
 		InterviewID:    iv.ID,
 		Recommendation: "hire",
 	})
 
-	if !s.HasUserSubmittedFeedbackForLoop(loop.ID, u.ID) {
+	if !s.HasUserSubmittedFeedbackForLoop(context.Background(), loop.ID, u.ID) {
 		t.Fatal("should have submitted feedback")
 	}
 }

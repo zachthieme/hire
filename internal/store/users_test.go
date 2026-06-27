@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"hire/internal/models"
 	"testing"
 )
@@ -8,14 +9,14 @@ import (
 func TestCreateAndGetUser(t *testing.T) {
 	s := newTestStore(t)
 	u := &models.User{Email: "alice@example.com", Name: "Alice", PasswordHash: "hash123", Role: "interviewer"}
-	if err := s.CreateUser(u); err != nil {
+	if err := s.CreateUser(context.Background(), u); err != nil {
 		t.Fatalf("CreateUser: %v", err)
 	}
 	if u.ID == 0 {
 		t.Fatal("expected ID to be set")
 	}
 
-	got, err := s.GetUserByID(u.ID)
+	got, err := s.GetUserByID(context.Background(), u.ID)
 	if err != nil {
 		t.Fatalf("GetUserByID: %v", err)
 	}
@@ -30,9 +31,9 @@ func TestCreateAndGetUser(t *testing.T) {
 func TestGetUserByEmail(t *testing.T) {
 	s := newTestStore(t)
 	u := &models.User{Email: "bob@example.com", Name: "Bob", PasswordHash: "hash", Role: "scheduler"}
-	s.CreateUser(u)
+	s.CreateUser(context.Background(), u)
 
-	got, err := s.GetUserByEmail("bob@example.com")
+	got, err := s.GetUserByEmail(context.Background(), "bob@example.com")
 	if err != nil {
 		t.Fatalf("GetUserByEmail: %v", err)
 	}
@@ -43,10 +44,10 @@ func TestGetUserByEmail(t *testing.T) {
 
 func TestListUsers(t *testing.T) {
 	s := newTestStore(t)
-	s.CreateUser(&models.User{Email: "a@test.com", Name: "A", PasswordHash: "h", Role: "admin"})
-	s.CreateUser(&models.User{Email: "b@test.com", Name: "B", PasswordHash: "h", Role: "interviewer"})
+	s.CreateUser(context.Background(), &models.User{Email: "a@test.com", Name: "A", PasswordHash: "h", Role: "admin"})
+	s.CreateUser(context.Background(), &models.User{Email: "b@test.com", Name: "B", PasswordHash: "h", Role: "interviewer"})
 
-	users, err := s.ListUsers(50, 0)
+	users, err := s.ListUsers(context.Background(), 50, 0)
 	if err != nil {
 		t.Fatalf("ListUsers: %v", err)
 	}
@@ -58,15 +59,15 @@ func TestListUsers(t *testing.T) {
 func TestUpdateUser(t *testing.T) {
 	s := newTestStore(t)
 	u := &models.User{Email: "c@test.com", Name: "C", PasswordHash: "h", Role: "interviewer"}
-	s.CreateUser(u)
+	s.CreateUser(context.Background(), u)
 
 	u.Name = "Charlie"
 	u.Role = "scheduler"
-	if err := s.UpdateUser(u); err != nil {
+	if err := s.UpdateUser(context.Background(), u); err != nil {
 		t.Fatalf("UpdateUser: %v", err)
 	}
 
-	got, _ := s.GetUserByID(u.ID)
+	got, _ := s.GetUserByID(context.Background(), u.ID)
 	if got.Name != "Charlie" || got.Role != "scheduler" {
 		t.Errorf("got name=%q role=%q, want Charlie scheduler", got.Name, got.Role)
 	}
@@ -75,12 +76,12 @@ func TestUpdateUser(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	s := newTestStore(t)
 	u := &models.User{Email: "d@test.com", Name: "D", PasswordHash: "h", Role: "admin"}
-	s.CreateUser(u)
+	s.CreateUser(context.Background(), u)
 
-	if err := s.DeleteUser(u.ID); err != nil {
+	if err := s.DeleteUser(context.Background(), u.ID); err != nil {
 		t.Fatalf("DeleteUser: %v", err)
 	}
-	_, err := s.GetUserByID(u.ID)
+	_, err := s.GetUserByID(context.Background(), u.ID)
 	if err == nil {
 		t.Fatal("expected error after delete")
 	}

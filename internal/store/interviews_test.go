@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"hire/internal/models"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ func TestCreateAndGetInterview(t *testing.T) {
 	s := newTestStore(t)
 	u, c := createTestUserAndCandidate(t, s)
 	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "scheduling", CreatedBy: u.ID}
-	s.CreateLoop(loop)
+	s.CreateLoop(context.Background(), loop)
 
 	iv := &models.Interview{
 		LoopID:              loop.ID,
@@ -21,14 +22,14 @@ func TestCreateAndGetInterview(t *testing.T) {
 		NotesForInterviewer: "Focus on algorithms",
 		Status:              "pending",
 	}
-	if err := s.CreateInterview(iv); err != nil {
+	if err := s.CreateInterview(context.Background(), iv); err != nil {
 		t.Fatalf("CreateInterview: %v", err)
 	}
 	if iv.ID == 0 {
 		t.Fatal("expected ID")
 	}
 
-	got, err := s.GetInterview(iv.ID)
+	got, err := s.GetInterview(context.Background(), iv.ID)
 	if err != nil {
 		t.Fatalf("GetInterview: %v", err)
 	}
@@ -41,12 +42,12 @@ func TestListInterviewsByLoop(t *testing.T) {
 	s := newTestStore(t)
 	u, c := createTestUserAndCandidate(t, s)
 	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "scheduling", CreatedBy: u.ID}
-	s.CreateLoop(loop)
+	s.CreateLoop(context.Background(), loop)
 
-	s.CreateInterview(&models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"})
-	s.CreateInterview(&models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "design", ScheduledAt: time.Now(), Status: "pending"})
+	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"})
+	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "design", ScheduledAt: time.Now(), Status: "pending"})
 
-	list, err := s.ListInterviewsByLoop(loop.ID)
+	list, err := s.ListInterviewsByLoop(context.Background(), loop.ID)
 	if err != nil {
 		t.Fatalf("ListInterviewsByLoop: %v", err)
 	}
@@ -59,11 +60,11 @@ func TestListInterviewsByUser(t *testing.T) {
 	s := newTestStore(t)
 	u, c := createTestUserAndCandidate(t, s)
 	loop := &models.InterviewLoop{CandidateID: c.ID, Status: "scheduling", CreatedBy: u.ID}
-	s.CreateLoop(loop)
+	s.CreateLoop(context.Background(), loop)
 
-	s.CreateInterview(&models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"})
+	s.CreateInterview(context.Background(), &models.Interview{LoopID: loop.ID, InterviewerID: u.ID, FocusArea: "coding", ScheduledAt: time.Now(), Status: "pending"})
 
-	list, err := s.ListInterviewsByUser(u.ID)
+	list, err := s.ListInterviewsByUser(context.Background(), u.ID)
 	if err != nil {
 		t.Fatalf("ListInterviewsByUser: %v", err)
 	}
