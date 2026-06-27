@@ -20,7 +20,7 @@ import (
 func testDSN() string {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://hire:devpassword@localhost:5432/hire_test?sslmode=disable"
+		dsn = "postgres://hire:devpassword@localhost:5433/hire_test?sslmode=disable"
 	}
 	return dsn
 }
