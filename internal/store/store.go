@@ -2,62 +2,36 @@ package store
 
 import (
 	"database/sql"
-	"embed"
 	"fmt"
-	"io/fs"
-	"path/filepath"
+	"time"
 
-	_ "modernc.org/sqlite"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
-
-//go:embed migrations/*.sql
-var migrationsFS embed.FS
 
 type Store struct {
 	db *sql.DB
 }
 
-func New(dsn string) (*Store, error) {
-	db, err := sql.Open("sqlite", dsn)
+func New(databaseURL string) (*Store, error) {
+	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
 	}
-	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+	if err := db.Ping(); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("set WAL: %w", err)
+		return nil, fmt.Errorf("ping db: %w", err)
 	}
-	if _, err := db.Exec("PRAGMA foreign_keys=ON"); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("set FK: %w", err)
-	}
-	s := &Store{db: db}
-	if err := s.migrate(); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("migrate: %w", err)
-	}
-	return s, nil
+	return &Store{db: db}, nil
 }
 
 func (s *Store) Close() error {
 	return s.db.Close()
 }
 
-func (s *Store) migrate() error {
-	entries, err := fs.ReadDir(migrationsFS, "migrations")
-	if err != nil {
-		return fmt.Errorf("read migrations: %w", err)
-	}
-	for _, e := range entries {
-		if filepath.Ext(e.Name()) != ".sql" {
-			continue
-		}
-		data, err := fs.ReadFile(migrationsFS, "migrations/"+e.Name())
-		if err != nil {
-			return fmt.Errorf("read %s: %w", e.Name(), err)
-		}
-		if _, err := s.db.Exec(string(data)); err != nil {
-			return fmt.Errorf("exec %s: %w", e.Name(), err)
-		}
-	}
-	return nil
+// DB returns the underlying database connection for administrative operations (e.g., test cleanup).
+func (s *Store) DB() *sql.DB {
+	return s.db
 }
