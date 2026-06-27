@@ -1,37 +1,30 @@
-.PHONY: dev dev-backend dev-frontend build clean test seed
+.PHONY: up down logs test seed migrate-new clean
 
-# Development: run backend and frontend concurrently
-dev:
-	@echo "Starting backend and frontend..."
-	@$(MAKE) dev-backend &
-	@$(MAKE) dev-frontend
-	@wait
+# Start all services
+up:
+	docker compose up --build -d
 
-dev-backend:
-	go run ./cmd/server -addr :8080 -db hire.db
+# Stop all services
+down:
+	docker compose down
 
-dev-frontend:
-	cd frontend && npm run dev
+# Follow logs
+logs:
+	docker compose logs -f
 
-# Build: compile frontend then embed into Go binary
-build: frontend/dist
-	go build -o hire-server ./cmd/server
-
-frontend/dist: frontend/node_modules frontend/src/**
-	cd frontend && npm run build
-
-frontend/node_modules: frontend/package.json
-	cd frontend && npm install
-
-# Test
+# Run tests (requires running db: docker compose up db -d)
 test:
-	go test ./internal/... -v
+	DATABASE_URL=postgres://hire:devpassword@localhost:5432/hire_test?sslmode=disable go test ./internal/... -v
 
-# Seed demo data
+# Seed demo data (requires running db)
 seed:
-	go run ./seed/seed.go
+	DATABASE_URL=postgres://hire:devpassword@localhost:5432/hire?sslmode=disable go run ./seed/seed.go
+
+# Create a new migration
+migrate-new:
+	migrate create -ext sql -dir migrations -seq $(name)
 
 # Clean
 clean:
-	rm -f hire-server hire.db
-	rm -rf frontend/dist
+	docker compose down -v
+	rm -f server
