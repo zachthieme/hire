@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { loops as loopsApi, competencies as compApi, type InterviewWithFeedback, type Competency } from '@/lib/api'
@@ -23,6 +23,13 @@ export default function DebriefView() {
 
   const [decision, setDecision] = useState('')
   const [notes, setNotes] = useState('')
+
+  useEffect(() => {
+    if (loop) {
+      setDecision(loop.final_decision || '')
+      setNotes(loop.debrief_notes || '')
+    }
+  }, [loop])
 
   const updateLoop = useMutation({
     mutationFn: () => loopsApi.update(loopId, {
@@ -97,7 +104,7 @@ export default function DebriefView() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Decision</Label>
-            <Select value={decision || loop.final_decision || ''} onValueChange={setDecision}>
+            <Select value={decision} onValueChange={setDecision}>
               <SelectTrigger><SelectValue placeholder="Select decision" /></SelectTrigger>
               <SelectContent>
                 {DECISIONS.map(d => (
@@ -109,7 +116,7 @@ export default function DebriefView() {
           <div className="space-y-2">
             <Label>Debrief Notes</Label>
             <Textarea
-              value={notes || loop.debrief_notes || ''}
+              value={notes}
               onChange={e => setNotes(e.target.value)}
               rows={4}
               placeholder="Summary of debrief discussion..."

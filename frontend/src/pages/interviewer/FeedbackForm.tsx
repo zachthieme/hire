@@ -115,7 +115,7 @@ export default function FeedbackForm({ interviewId, competencies, onSubmitted }:
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button onClick={handleSubmit} disabled={!recommendation || submitting} className="w-full">
+        <Button onClick={handleSubmit} disabled={!recommendation || submitting || competencies.some(c => !ratings[c.id])} className="w-full">
           {submitting ? 'Submitting...' : 'Submit Feedback'}
         </Button>
       </CardContent>
