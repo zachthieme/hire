@@ -8,14 +8,13 @@ import (
 )
 
 func (s *Store) CreateLoop(l *models.InterviewLoop) error {
-	res, err := s.db.Exec(
-		`INSERT INTO interview_loops (candidate_id, status, created_by) VALUES (?, ?, ?)`,
+	err := s.db.QueryRow(
+		`INSERT INTO interview_loops (candidate_id, status, created_by) VALUES ($1, $2, $3) RETURNING id`,
 		l.CandidateID, l.Status, l.CreatedBy,
-	)
+	).Scan(&l.ID)
 	if err != nil {
 		return fmt.Errorf("insert loop: %w", err)
 	}
-	l.ID, _ = res.LastInsertId()
 	return nil
 }
 
@@ -23,7 +22,7 @@ func (s *Store) GetLoop(id int64) (*models.InterviewLoop, error) {
 	var l models.InterviewLoop
 	err := s.db.QueryRow(
 		`SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at
-		 FROM interview_loops WHERE id = ?`, id,
+		 FROM interview_loops WHERE id = $1`, id,
 	).Scan(&l.ID, &l.CandidateID, &l.Status, &l.FinalDecision, &l.DebriefNotes, &l.CreatedBy, &l.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, fmt.Errorf("loop not found")
@@ -34,15 +33,18 @@ func (s *Store) GetLoop(id int64) (*models.InterviewLoop, error) {
 func (s *Store) ListLoops(candidateID *int64, status *string, limit, offset int) ([]*models.InterviewLoop, error) {
 	query := `SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at FROM interview_loops WHERE 1=1`
 	var args []any
+	paramIdx := 1
 	if candidateID != nil {
-		query += ` AND candidate_id = ?`
+		query += fmt.Sprintf(` AND candidate_id = $%d`, paramIdx)
 		args = append(args, *candidateID)
+		paramIdx++
 	}
 	if status != nil {
-		query += ` AND status = ?`
+		query += fmt.Sprintf(` AND status = $%d`, paramIdx)
 		args = append(args, *status)
+		paramIdx++
 	}
-	query += ` ORDER BY id DESC LIMIT ? OFFSET ?`
+	query += fmt.Sprintf(` ORDER BY id DESC LIMIT $%d OFFSET $%d`, paramIdx, paramIdx+1)
 	args = append(args, limit, offset)
 
 	rows, err := s.db.Query(query, args...)
@@ -63,14 +65,14 @@ func (s *Store) ListLoops(candidateID *int64, status *string, limit, offset int)
 
 func (s *Store) UpdateLoop(l *models.InterviewLoop) error {
 	_, err := s.db.Exec(
-		`UPDATE interview_loops SET status = ?, final_decision = ?, debrief_notes = ? WHERE id = ?`,
+		`UPDATE interview_loops SET status = $1, final_decision = $2, debrief_notes = $3 WHERE id = $4`,
 		l.Status, l.FinalDecision, l.DebriefNotes, l.ID,
 	)
 	return err
 }
 
 func (s *Store) DeleteLoop(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM interview_loops WHERE id = ?`, id)
+	_, err := s.db.Exec(`DELETE FROM interview_loops WHERE id = $1`, id)
 	return err
 }
 
@@ -91,7 +93,7 @@ func (s *Store) GetLoopDetail(id int64) (*models.LoopDetail, error) {
 		        i.notes_for_interviewer, i.status, i.created_at, u.name
 		 FROM interviews i
 		 JOIN users u ON i.interviewer_id = u.id
-		 WHERE i.loop_id = ?
+		 WHERE i.loop_id = $1
 		 ORDER BY i.scheduled_at`, id,
 	)
 	if err != nil {
@@ -128,7 +130,7 @@ func (s *Store) GetLoopDetail(id int64) (*models.LoopDetail, error) {
 		placeholders := make([]string, len(interviewIDs))
 		args := make([]any, len(interviewIDs))
 		for i, id := range interviewIDs {
-			placeholders[i] = "?"
+			placeholders[i] = fmt.Sprintf("$%d", i+1)
 			args[i] = id
 		}
 		fbRows, err := s.db.Query(

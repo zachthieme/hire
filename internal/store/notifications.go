@@ -6,20 +6,19 @@ import (
 )
 
 func (s *Store) CreateNotification(n *models.Notification) error {
-	res, err := s.db.Exec(
-		`INSERT INTO notifications (user_id, message, link) VALUES (?, ?, ?)`,
+	err := s.db.QueryRow(
+		`INSERT INTO notifications (user_id, message, link) VALUES ($1, $2, $3) RETURNING id`,
 		n.UserID, n.Message, n.Link,
-	)
+	).Scan(&n.ID)
 	if err != nil {
 		return fmt.Errorf("insert notification: %w", err)
 	}
-	n.ID, _ = res.LastInsertId()
 	return nil
 }
 
 func (s *Store) ListNotificationsByUser(userID int64, limit, offset int) ([]*models.Notification, error) {
 	rows, err := s.db.Query(
-		`SELECT id, user_id, message, link, read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+		`SELECT id, user_id, message, link, read, created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
 		userID, limit, offset,
 	)
 	if err != nil {
@@ -38,7 +37,7 @@ func (s *Store) ListNotificationsByUser(userID int64, limit, offset int) ([]*mod
 }
 
 func (s *Store) MarkNotificationRead(id, userID int64) error {
-	res, err := s.db.Exec(`UPDATE notifications SET read = 1 WHERE id = ? AND user_id = ?`, id, userID)
+	res, err := s.db.Exec(`UPDATE notifications SET read = true WHERE id = $1 AND user_id = $2`, id, userID)
 	if err != nil {
 		return err
 	}
@@ -51,6 +50,6 @@ func (s *Store) MarkNotificationRead(id, userID int64) error {
 
 func (s *Store) CountUnreadNotifications(userID int64) (int, error) {
 	var count int
-	err := s.db.QueryRow(`SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read = 0`, userID).Scan(&count)
+	err := s.db.QueryRow(`SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND read = false`, userID).Scan(&count)
 	return count, err
 }

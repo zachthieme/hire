@@ -2,23 +2,42 @@ package main
 
 import (
 	"fmt"
-	"hire/internal/api"
-	"hire/internal/models"
-	"hire/internal/store"
 	"log"
 	"os"
 	"time"
+
+	"hire/internal/api"
+	"hire/internal/models"
+	"hire/internal/store"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
-	dbPath := "hire.db"
-	os.Remove(dbPath)
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		log.Fatal("DATABASE_URL is required")
+	}
 
-	s, err := store.New(dbPath)
+	// Run migrations
+	mig, err := migrate.New("file://migrations", dsn)
+	if err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+	if err := mig.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("migrate up: %v", err)
+	}
+
+	s, err := store.New(dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer s.Close()
+
+	// Clean existing data
+	s.DB().Exec("TRUNCATE competency_ratings, notifications, feedback, interviews, interview_loops, competencies, candidates, users RESTART IDENTITY CASCADE")
 
 	// Admin user
 	adminHash, _ := api.HashPassword("admin")

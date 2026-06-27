@@ -1,58 +1,52 @@
 package main
 
 import (
-	"flag"
 	"fmt"
-	"io/fs"
 	"log"
 	"net/http"
 	"os"
 
-	root "hire"
 	"hire/internal/api"
 	"hire/internal/store"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
 func main() {
-	addr := flag.String("addr", ":8080", "listen address")
-	dbPath := flag.String("db", "hire.db", "SQLite database path")
-	jwtSecret := flag.String("jwt-secret", "", "JWT signing secret (or set JWT_SECRET env var)")
-	flag.Parse()
-
-	secret := *jwtSecret
-	if secret == "" {
-		secret = os.Getenv("JWT_SECRET")
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL is required")
 	}
-	if secret == "" {
-		log.Fatal("JWT secret is required: use -jwt-secret flag or JWT_SECRET env var")
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET is required")
+	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
 
-	s, err := store.New(*dbPath)
+	// Run migrations
+	mig, err := migrate.New("file://migrations", databaseURL)
 	if err != nil {
-		log.Fatalf("Failed to open database: %v", err)
+		log.Fatalf("Failed to create migrator: %v", err)
+	}
+	if err := mig.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	s, err := store.New(databaseURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer s.Close()
 
-	h := api.NewHandler(s, secret)
+	h := api.NewHandler(s, jwtSecret)
 	r := h.Router()
 
-	// Serve embedded frontend
-	frontendDist, err := fs.Sub(root.FrontendFS, "frontend/dist")
-	if err != nil {
-		log.Fatalf("Failed to load frontend: %v", err)
-	}
-	fileServer := http.FileServer(http.FS(frontendDist))
-	r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Try to serve the file; if it doesn't exist, serve index.html (SPA routing)
-		f, err := frontendDist.Open(req.URL.Path[1:])
-		if err != nil {
-			req.URL.Path = "/"
-		} else {
-			f.Close()
-		}
-		fileServer.ServeHTTP(w, req)
-	}))
-
-	fmt.Printf("Server listening on %s\n", *addr)
-	log.Fatal(http.ListenAndServe(*addr, r))
+	addr := ":" + port
+	fmt.Printf("Server listening on %s\n", addr)
+	log.Fatal(http.ListenAndServe(addr, r))
 }

@@ -7,17 +7,40 @@ import (
 	"hire/internal/store"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
+
+func testDSN() string {
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://hire:devpassword@localhost:5432/hire_test?sslmode=disable"
+	}
+	return dsn
+}
+
+func TestMain(m *testing.M) {
+	dsn := testDSN()
+	mig, err := migrate.New("file://../../migrations", dsn)
+	if err != nil {
+		panic("migrate.New: " + err.Error())
+	}
+	mig.Up()
+	os.Exit(m.Run())
+}
 
 func newTestHandler(t *testing.T) (*Handler, *store.Store) {
 	t.Helper()
-	s, err := store.New(":memory:")
+	s, err := store.New(testDSN())
 	if err != nil {
 		t.Fatalf("newTestHandler: %v", err)
 	}
+	s.DB().Exec("TRUNCATE competency_ratings, notifications, feedback, interviews, interview_loops, competencies, candidates, users RESTART IDENTITY CASCADE")
 	t.Cleanup(func() { s.Close() })
 	h := NewHandler(s, "test-secret")
 	return h, s
