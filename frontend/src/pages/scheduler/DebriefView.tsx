@@ -19,7 +19,7 @@ export default function DebriefView() {
   const queryClient = useQueryClient()
 
   const { data: loop } = useQuery({ queryKey: ['loops', loopId], queryFn: () => loopsApi.get(loopId) })
-  const { data: comps = [] } = useQuery({ queryKey: ['competencies'], queryFn: compApi.list })
+  const { data: comps = [] } = useQuery({ queryKey: ['competencies'], queryFn: () => compApi.list() })
 
   const [decision, setDecision] = useState('')
   const [notes, setNotes] = useState('')

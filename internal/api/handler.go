@@ -10,12 +10,13 @@ import (
 )
 
 type Handler struct {
-	store     *store.Store
-	jwtSecret []byte
+	store       *store.Store
+	jwtSecret   []byte
+	corsOrigins []string
 }
 
-func NewHandler(s *store.Store, jwtSecret string) *Handler {
-	return &Handler{store: s, jwtSecret: []byte(jwtSecret)}
+func NewHandler(s *store.Store, jwtSecret string, corsOrigins []string) *Handler {
+	return &Handler{store: s, jwtSecret: []byte(jwtSecret), corsOrigins: corsOrigins}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

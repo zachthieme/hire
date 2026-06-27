@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"hire/internal/models"
 	"hire/internal/store"
@@ -42,14 +43,14 @@ func newTestHandler(t *testing.T) (*Handler, *store.Store) {
 	}
 	s.DB().Exec("TRUNCATE competency_ratings, notifications, feedback, interviews, interview_loops, competencies, candidates, users RESTART IDENTITY CASCADE")
 	t.Cleanup(func() { s.Close() })
-	h := NewHandler(s, "test-secret")
+	h := NewHandler(s, "test-secret", []string{"*"})
 	return h, s
 }
 
 func TestLoginSuccess(t *testing.T) {
 	h, s := newTestHandler(t)
 	hash, _ := HashPassword("password123")
-	s.CreateUser(&models.User{Email: "test@test.com", Name: "Test", PasswordHash: hash, Role: "interviewer"})
+	s.CreateUser(context.Background(), &models.User{Email: "test@test.com", Name: "Test", PasswordHash: hash, Role: "interviewer"})
 
 	r := chi.NewRouter()
 	r.Post("/api/auth/login", h.Login)
@@ -73,7 +74,7 @@ func TestLoginSuccess(t *testing.T) {
 func TestLoginWrongPassword(t *testing.T) {
 	h, s := newTestHandler(t)
 	hash, _ := HashPassword("correct")
-	s.CreateUser(&models.User{Email: "test@test.com", Name: "Test", PasswordHash: hash, Role: "interviewer"})
+	s.CreateUser(context.Background(), &models.User{Email: "test@test.com", Name: "Test", PasswordHash: hash, Role: "interviewer"})
 
 	r := chi.NewRouter()
 	r.Post("/api/auth/login", h.Login)
@@ -92,7 +93,7 @@ func TestAuthMiddleware(t *testing.T) {
 	h, s := newTestHandler(t)
 	hash, _ := HashPassword("pass")
 	u := &models.User{Email: "a@a.com", Name: "A", PasswordHash: hash, Role: "scheduler"}
-	s.CreateUser(u)
+	s.CreateUser(context.Background(), u)
 
 	token, _ := h.generateToken(u.ID, u.Role)
 

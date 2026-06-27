@@ -39,7 +39,13 @@ export const auth = {
 
 // Users
 export const users = {
-  list: () => request<User[]>('GET', '/users'),
+  list: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return request<User[]>('GET', `/users${qs ? '?' + qs : ''}`)
+  },
   create: (data: CreateUserReq) => request<User>('POST', '/users', data),
   update: (id: number, data: CreateUserReq) => request<User>('PUT', `/users/${id}`, data),
   delete: (id: number) => request<void>('DELETE', `/users/${id}`),
@@ -47,7 +53,13 @@ export const users = {
 
 // Candidates
 export const candidates = {
-  list: () => request<Candidate[]>('GET', '/candidates'),
+  list: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return request<Candidate[]>('GET', `/candidates${qs ? '?' + qs : ''}`)
+  },
   get: (id: number) => request<Candidate>('GET', `/candidates/${id}`),
   create: (data: Partial<Candidate>) => request<Candidate>('POST', '/candidates', data),
   update: (id: number, data: Partial<Candidate>) => request<Candidate>('PUT', `/candidates/${id}`, data),
@@ -56,10 +68,12 @@ export const candidates = {
 
 // Loops
 export const loops = {
-  list: (params?: { candidate_id?: number; status?: string }) => {
+  list: (params?: { candidate_id?: number; status?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
     if (params?.candidate_id) q.set('candidate_id', String(params.candidate_id))
     if (params?.status) q.set('status', params.status)
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
     const qs = q.toString()
     return request<InterviewLoop[]>('GET', `/loops${qs ? '?' + qs : ''}`)
   },
@@ -87,7 +101,13 @@ export const feedback = {
 
 // Competencies
 export const competencies = {
-  list: () => request<Competency[]>('GET', '/competencies'),
+  list: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return request<Competency[]>('GET', `/competencies${qs ? '?' + qs : ''}`)
+  },
   create: (data: Partial<Competency>) => request<Competency>('POST', '/competencies', data),
   update: (id: number, data: Partial<Competency>) => request<Competency>('PUT', `/competencies/${id}`, data),
   delete: (id: number) => request<void>('DELETE', `/competencies/${id}`),
@@ -95,7 +115,13 @@ export const competencies = {
 
 // Notifications
 export const notifications = {
-  list: () => request<Notification[]>('GET', '/notifications'),
+  list: (params?: { limit?: number; offset?: number }) => {
+    const q = new URLSearchParams()
+    if (params?.limit) q.set('limit', String(params.limit))
+    if (params?.offset) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return request<Notification[]>('GET', `/notifications${qs ? '?' + qs : ''}`)
+  },
   markRead: (id: number) => request<void>('PUT', `/notifications/${id}/read`),
 }
 

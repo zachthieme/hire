@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom'
 export default function NotificationBell() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { data: notifs = [] } = useQuery({ queryKey: ['notifications'], queryFn: notifApi.list, refetchInterval: 15000 })
+  const { data: notifs = [] } = useQuery({ queryKey: ['notifications'], queryFn: () => notifApi.list(), refetchInterval: 15000 })
   const markRead = useMutation({
     mutationFn: notifApi.markRead,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),

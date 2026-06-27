@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"hire/internal/models"
+	"hire/internal/store"
 	"net/http"
 	"strconv"
 
@@ -21,7 +23,7 @@ func (h *Handler) CreateCandidate(w http.ResponseWriter, r *http.Request) {
 	if c.Status == "" {
 		c.Status = "active"
 	}
-	if err := h.store.CreateCandidate(&c); err != nil {
+	if err := h.store.CreateCandidate(r.Context(), &c); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -34,9 +36,13 @@ func (h *Handler) GetCandidate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	c, err := h.store.GetCandidate(id)
+	c, err := h.store.GetCandidate(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "candidate not found")
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
@@ -44,7 +50,7 @@ func (h *Handler) GetCandidate(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) ListCandidates(w http.ResponseWriter, r *http.Request) {
 	limit, offset := parsePagination(r)
-	list, err := h.store.ListCandidates(limit, offset)
+	list, err := h.store.ListCandidates(r.Context(), limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -64,8 +70,12 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c.ID = id
-	if err := h.store.UpdateCandidate(&c); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
+	if err := h.store.UpdateCandidate(r.Context(), &c); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
@@ -77,7 +87,7 @@ func (h *Handler) DeleteCandidate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
-	if err := h.store.DeleteCandidate(id); err != nil {
+	if err := h.store.DeleteCandidate(r.Context(), id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

@@ -1,14 +1,15 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"hire/internal/models"
 	"strings"
 )
 
-func (s *Store) CreateLoop(l *models.InterviewLoop) error {
-	err := s.db.QueryRow(
+func (s *Store) CreateLoop(ctx context.Context, l *models.InterviewLoop) error {
+	err := s.db.QueryRowContext(ctx,
 		`INSERT INTO interview_loops (candidate_id, status, created_by) VALUES ($1, $2, $3) RETURNING id`,
 		l.CandidateID, l.Status, l.CreatedBy,
 	).Scan(&l.ID)
@@ -18,19 +19,19 @@ func (s *Store) CreateLoop(l *models.InterviewLoop) error {
 	return nil
 }
 
-func (s *Store) GetLoop(id int64) (*models.InterviewLoop, error) {
+func (s *Store) GetLoop(ctx context.Context, id int64) (*models.InterviewLoop, error) {
 	var l models.InterviewLoop
-	err := s.db.QueryRow(
+	err := s.db.QueryRowContext(ctx,
 		`SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at
 		 FROM interview_loops WHERE id = $1`, id,
 	).Scan(&l.ID, &l.CandidateID, &l.Status, &l.FinalDecision, &l.DebriefNotes, &l.CreatedBy, &l.CreatedAt)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("loop not found")
+		return nil, ErrNotFound
 	}
 	return &l, err
 }
 
-func (s *Store) ListLoops(candidateID *int64, status *string, limit, offset int) ([]*models.InterviewLoop, error) {
+func (s *Store) ListLoops(ctx context.Context, candidateID *int64, status *string, limit, offset int) ([]*models.InterviewLoop, error) {
 	query := `SELECT id, candidate_id, status, final_decision, debrief_notes, created_by, created_at FROM interview_loops WHERE 1=1`
 	var args []any
 	paramIdx := 1
@@ -47,7 +48,7 @@ func (s *Store) ListLoops(candidateID *int64, status *string, limit, offset int)
 	query += fmt.Sprintf(` ORDER BY id DESC LIMIT $%d OFFSET $%d`, paramIdx, paramIdx+1)
 	args = append(args, limit, offset)
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,32 +64,46 @@ func (s *Store) ListLoops(candidateID *int64, status *string, limit, offset int)
 	return out, rows.Err()
 }
 
-func (s *Store) UpdateLoop(l *models.InterviewLoop) error {
-	_, err := s.db.Exec(
+func (s *Store) UpdateLoop(ctx context.Context, l *models.InterviewLoop) error {
+	res, err := s.db.ExecContext(ctx,
 		`UPDATE interview_loops SET status = $1, final_decision = $2, debrief_notes = $3 WHERE id = $4`,
 		l.Status, l.FinalDecision, l.DebriefNotes, l.ID,
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
-func (s *Store) DeleteLoop(id int64) error {
-	_, err := s.db.Exec(`DELETE FROM interview_loops WHERE id = $1`, id)
-	return err
+func (s *Store) DeleteLoop(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx, `DELETE FROM interview_loops WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // GetLoopDetail returns a loop with its candidate, interviews, and feedback.
-func (s *Store) GetLoopDetail(id int64) (*models.LoopDetail, error) {
-	loop, err := s.GetLoop(id)
+func (s *Store) GetLoopDetail(ctx context.Context, id int64) (*models.LoopDetail, error) {
+	loop, err := s.GetLoop(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	candidate, err := s.GetCandidate(loop.CandidateID)
+	candidate, err := s.GetCandidate(ctx, loop.CandidateID)
 	if err != nil {
 		return nil, fmt.Errorf("get candidate for loop: %w", err)
 	}
 
 	// Fetch interviews with interviewer names in one query
-	rows, err := s.db.Query(
+	rows, err := s.db.QueryContext(ctx,
 		`SELECT i.id, i.loop_id, i.interviewer_id, i.focus_area, i.scheduled_at, i.video_link,
 		        i.notes_for_interviewer, i.status, i.created_at, u.name
 		 FROM interviews i
@@ -133,7 +148,7 @@ func (s *Store) GetLoopDetail(id int64) (*models.LoopDetail, error) {
 			placeholders[i] = fmt.Sprintf("$%d", i+1)
 			args[i] = id
 		}
-		fbRows, err := s.db.Query(
+		fbRows, err := s.db.QueryContext(ctx,
 			`SELECT f.id, f.interview_id, f.recommendation, f.recommendation_reason, f.free_form_notes, f.submitted_at
 			 FROM feedback f WHERE f.interview_id IN (`+strings.Join(placeholders, ",")+`)`, args...,
 		)
@@ -148,7 +163,11 @@ func (s *Store) GetLoopDetail(id int64) (*models.LoopDetail, error) {
 				return nil, err
 			}
 			// Load competency ratings for this feedback
-			fb.CompetencyRatings, _ = s.listCompetencyRatings(fb.ID)
+			ratings, err := s.listCompetencyRatings(ctx, fb.ID)
+			if err != nil {
+				return nil, fmt.Errorf("list competency ratings: %w", err)
+			}
+			fb.CompetencyRatings = ratings
 			if iwf, ok := interviewMap[fb.InterviewID]; ok {
 				iwf.Feedback = &fb
 			}

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"hire/internal/models"
 	"testing"
 )
@@ -8,13 +9,13 @@ import (
 func TestCreateAndGetCompetency(t *testing.T) {
 	s := newTestStore(t)
 	c := &models.Competency{Name: "Problem Solving", RatingType: "levels", RatingsJSON: `["Learning","Owning","Advising"]`}
-	if err := s.CreateCompetency(c); err != nil {
+	if err := s.CreateCompetency(context.Background(), c); err != nil {
 		t.Fatalf("CreateCompetency: %v", err)
 	}
 	if c.ID == 0 {
 		t.Fatal("expected ID")
 	}
-	got, err := s.GetCompetency(c.ID)
+	got, err := s.GetCompetency(context.Background(), c.ID)
 	if err != nil {
 		t.Fatalf("GetCompetency: %v", err)
 	}
@@ -25,9 +26,9 @@ func TestCreateAndGetCompetency(t *testing.T) {
 
 func TestListCompetencies(t *testing.T) {
 	s := newTestStore(t)
-	s.CreateCompetency(&models.Competency{Name: "A", RatingType: "levels", RatingsJSON: `["X"]`})
-	s.CreateCompetency(&models.Competency{Name: "B", RatingType: "stars", RatingsJSON: `{"min":1,"max":5}`})
-	list, err := s.ListCompetencies()
+	s.CreateCompetency(context.Background(), &models.Competency{Name: "A", RatingType: "levels", RatingsJSON: `["X"]`})
+	s.CreateCompetency(context.Background(), &models.Competency{Name: "B", RatingType: "stars", RatingsJSON: `{"min":1,"max":5}`})
+	list, err := s.ListCompetencies(context.Background(), 50, 0)
 	if err != nil {
 		t.Fatalf("ListCompetencies: %v", err)
 	}
@@ -39,11 +40,11 @@ func TestListCompetencies(t *testing.T) {
 func TestDeleteCompetency(t *testing.T) {
 	s := newTestStore(t)
 	c := &models.Competency{Name: "C", RatingType: "stars", RatingsJSON: `{"min":1,"max":5}`}
-	s.CreateCompetency(c)
-	if err := s.DeleteCompetency(c.ID); err != nil {
+	s.CreateCompetency(context.Background(), c)
+	if err := s.DeleteCompetency(context.Background(), c.ID); err != nil {
 		t.Fatalf("DeleteCompetency: %v", err)
 	}
-	_, err := s.GetCompetency(c.ID)
+	_, err := s.GetCompetency(context.Background(), c.ID)
 	if err == nil {
 		t.Fatal("expected error after delete")
 	}

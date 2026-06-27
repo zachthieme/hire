@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"hire/internal/models"
 	"net/http"
@@ -15,7 +16,7 @@ func TestCandidateCRUD(t *testing.T) {
 	h, s := newTestHandler(t)
 	hash, _ := HashPassword("pass")
 	u := &models.User{Email: "sched@test.com", Name: "Sched", PasswordHash: hash, Role: "scheduler"}
-	s.CreateUser(u)
+	s.CreateUser(context.Background(), u)
 	token, _ := h.generateToken(u.ID, u.Role)
 
 	r := chi.NewRouter()

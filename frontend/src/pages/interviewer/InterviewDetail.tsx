@@ -23,7 +23,7 @@ export default function InterviewDetail() {
     enabled: !!interview,
   })
 
-  const { data: competenciesList = [] } = useQuery({ queryKey: ['competencies'], queryFn: compApi.list })
+  const { data: competenciesList = [] } = useQuery({ queryKey: ['competencies'], queryFn: () => compApi.list() })
 
   if (!interview) return <div>Loading...</div>
 

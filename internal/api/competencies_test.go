@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"hire/internal/models"
 	"net/http"
@@ -15,7 +16,7 @@ func TestCompetencyCRUD(t *testing.T) {
 	h, s := newTestHandler(t)
 	hash, _ := HashPassword("pass")
 	u := &models.User{Email: "admin@test.com", Name: "Admin", PasswordHash: hash, Role: "admin"}
-	s.CreateUser(u)
+	s.CreateUser(context.Background(), u)
 	token, _ := h.generateToken(u.ID, u.Role)
 
 	r := chi.NewRouter()

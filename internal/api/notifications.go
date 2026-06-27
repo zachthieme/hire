@@ -1,6 +1,8 @@
 package api
 
 import (
+	"errors"
+	"hire/internal/store"
 	"net/http"
 	"strconv"
 
@@ -10,7 +12,7 @@ import (
 func (h *Handler) ListNotifications(w http.ResponseWriter, r *http.Request) {
 	userID := UserID(r.Context())
 	limit, offset := parsePagination(r)
-	list, err := h.store.ListNotificationsByUser(userID, limit, offset)
+	list, err := h.store.ListNotificationsByUser(r.Context(), userID, limit, offset)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -25,8 +27,12 @@ func (h *Handler) MarkNotificationRead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := UserID(r.Context())
-	if err := h.store.MarkNotificationRead(id, userID); err != nil {
-		writeError(w, http.StatusNotFound, "notification not found")
+	if err := h.store.MarkNotificationRead(r.Context(), id, userID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeError(w, http.StatusNotFound, "notification not found")
+		} else {
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

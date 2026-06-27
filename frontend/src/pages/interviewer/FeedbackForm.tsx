@@ -29,9 +29,11 @@ export default function FeedbackForm({ interviewId, competencies, onSubmitted }:
   const [notes, setNotes] = useState('')
   const [ratings, setRatings] = useState<Record<number, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async () => {
     setSubmitting(true)
+    setError('')
     try {
       const data: FeedbackCreate = {
         recommendation,
@@ -45,6 +47,8 @@ export default function FeedbackForm({ interviewId, competencies, onSubmitted }:
       await fbApi.create(interviewId, data)
       queryClient.invalidateQueries({ queryKey: ['my-interviews'] })
       onSubmitted()
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit feedback')
     } finally {
       setSubmitting(false)
     }
@@ -110,6 +114,7 @@ export default function FeedbackForm({ interviewId, competencies, onSubmitted }:
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={4} placeholder="Any other observations..." />
         </div>
 
+        {error && <p className="text-sm text-red-600">{error}</p>}
         <Button onClick={handleSubmit} disabled={!recommendation || submitting} className="w-full">
           {submitting ? 'Submitting...' : 'Submit Feedback'}
         </Button>

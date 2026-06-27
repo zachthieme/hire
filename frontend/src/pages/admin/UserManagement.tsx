@@ -11,7 +11,7 @@ import { Trash2, Plus } from 'lucide-react'
 
 export default function UserManagement() {
   const queryClient = useQueryClient()
-  const { data: userList = [] } = useQuery({ queryKey: ['users'], queryFn: usersApi.list })
+  const { data: userList = [] } = useQuery({ queryKey: ['users'], queryFn: () => usersApi.list() })
   const createUser = useMutation({
     mutationFn: (data: CreateUserReq) => usersApi.create(data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); setOpen(false); resetForm() },

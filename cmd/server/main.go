@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"hire/internal/api"
 	"hire/internal/store"
@@ -23,9 +25,18 @@ func main() {
 	if jwtSecret == "" {
 		log.Fatal("JWT_SECRET is required")
 	}
+	if len(jwtSecret) < 32 {
+		log.Fatal("JWT_SECRET must be at least 32 characters")
+	}
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+
+	corsOrigins := os.Getenv("CORS_ORIGINS")
+	origins := []string{"*"}
+	if corsOrigins != "" {
+		origins = strings.Split(corsOrigins, ",")
 	}
 
 	// Run migrations
@@ -43,10 +54,17 @@ func main() {
 	}
 	defer s.Close()
 
-	h := api.NewHandler(s, jwtSecret)
+	h := api.NewHandler(s, jwtSecret, origins)
 	r := h.Router()
 
 	addr := ":" + port
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 	fmt.Printf("Server listening on %s\n", addr)
-	log.Fatal(http.ListenAndServe(addr, r))
+	log.Fatal(srv.ListenAndServe())
 }
