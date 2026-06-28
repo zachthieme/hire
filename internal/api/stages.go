@@ -36,7 +36,15 @@ func (h *Handler) CreateStage(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if st.ScheduledAt.IsZero() {
+		writeError(w, http.StatusBadRequest, "scheduled_at is required")
+		return
+	}
 	if err := h.store.CreateStage(r.Context(), &st); err != nil {
+		if code, ok := pgConstraintStatus(err); ok && code == http.StatusBadRequest {
+			writeError(w, http.StatusBadRequest, "application not found")
+			return
+		}
 		writeInternalError(w, r, err)
 		return
 	}
@@ -116,6 +124,10 @@ func (h *Handler) AddStageInterviewer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.store.AddStageInterviewer(r.Context(), stageID, body.InterviewerID); err != nil {
+		if code, ok := pgConstraintStatus(err); ok && code == http.StatusBadRequest {
+			writeError(w, http.StatusBadRequest, "interviewer not found")
+			return
+		}
 		writeInternalError(w, r, err)
 		return
 	}

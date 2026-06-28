@@ -36,6 +36,14 @@ func (h *Handler) CreateApplication(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   UserID(r.Context()),
 	}
 	if err := h.store.CreateApplication(r.Context(), &app); err != nil {
+		if st, ok := pgConstraintStatus(err); ok {
+			msg := "candidate is already on this job"
+			if st == http.StatusBadRequest {
+				msg = "candidate not found"
+			}
+			writeError(w, st, msg)
+			return
+		}
 		writeInternalError(w, r, err)
 		return
 	}

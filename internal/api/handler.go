@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Handler struct {
@@ -46,6 +49,20 @@ func writeInternalError(w http.ResponseWriter, r *http.Request, err error) {
 		"request_id", RequestID(r.Context()),
 	)
 	writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+}
+
+// pgConstraintStatus maps a Postgres unique/FK violation to an HTTP status.
+func pgConstraintStatus(err error) (status int, ok bool) {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23505":
+			return http.StatusConflict, true // unique_violation
+		case "23503":
+			return http.StatusBadRequest, true // foreign_key_violation
+		}
+	}
+	return 0, false
 }
 
 func validateRequired(fields map[string]string) error {

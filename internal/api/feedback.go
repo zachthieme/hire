@@ -25,6 +25,27 @@ func (h *Handler) GetStageFeedback(w http.ResponseWriter, r *http.Request) {
 		writeInternalError(w, r, err)
 		return
 	}
+	// Bias prevention: an interviewer who has not yet submitted their own
+	// feedback for this stage sees only their own (an empty list until they submit).
+	if UserRole(r.Context()) == models.RoleInterviewer {
+		uid := UserID(r.Context())
+		submitted := false
+		for _, f := range list {
+			if f.InterviewerID == uid {
+				submitted = true
+				break
+			}
+		}
+		if !submitted {
+			own := make([]*models.Feedback, 0)
+			for _, f := range list {
+				if f.InterviewerID == uid {
+					own = append(own, f)
+				}
+			}
+			list = own
+		}
+	}
 	writeJSON(w, http.StatusOK, list)
 }
 
@@ -64,6 +85,14 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 
 	ready, applicationID, err := h.store.CreateFeedback(r.Context(), &fb)
 	if err != nil {
+		if st, ok := pgConstraintStatus(err); ok {
+			msg := "feedback already submitted; use update"
+			if st == http.StatusBadRequest {
+				msg = "stage not found"
+			}
+			writeError(w, st, msg)
+			return
+		}
 		writeInternalError(w, r, err)
 		return
 	}
