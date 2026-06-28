@@ -48,42 +48,45 @@ func (h *Handler) Router() chi.Router {
 		// Any authenticated user
 		r.Get("/api/me", h.GetMe)
 		r.Post("/api/auth/refresh", h.RefreshToken)
-		r.Get("/api/me/interviews", h.ListMyInterviews)
+		r.Get("/api/me/stages", h.ListMyStages)
 		r.Get("/api/notifications", h.ListNotifications)
 		r.Put("/api/notifications/{id}/read", h.MarkNotificationRead)
 		r.Get("/api/competencies", h.ListCompetencies)
 
-		// Feedback — interviewer submits, scheduler/interviewer can read
-		r.Get("/api/interviews/{id}/feedback", h.GetFeedback)
-		r.Post("/api/interviews/{id}/feedback", h.CreateFeedback)
+		// Jobs & applications — readable by any authenticated user
+		r.Get("/api/jobs", h.ListJobs)
+		r.Get("/api/jobs/{id}", h.GetJobDetail)
+		r.Get("/api/applications/{id}", h.GetApplicationDetail)
+
+		// Stage feedback
+		r.Get("/api/stages/{id}/feedback", h.GetStageFeedback)
+		r.Post("/api/stages/{id}/feedback", h.CreateFeedback)
 		r.Put("/api/feedback/{id}", h.UpdateFeedback)
 
-		// Loops — readable by scheduler and interviewer
-		r.Get("/api/loops", h.ListLoops)
-		r.Get("/api/loops/{id}", h.GetLoopDetail)
-
-		// Scheduler and admin can list users (scheduler needs it for interviewer assignment)
+		// Scheduler and admin
 		r.Group(func(r chi.Router) {
 			r.Use(h.RequireRole("scheduler", "admin"))
 			r.Get("/api/users", h.ListUsers)
-		})
 
-		// Scheduler-only
-		r.Group(func(r chi.Router) {
-			r.Use(h.RequireRole("scheduler", "admin"))
 			r.Post("/api/candidates", h.CreateCandidate)
 			r.Get("/api/candidates", h.ListCandidates)
 			r.Get("/api/candidates/{id}", h.GetCandidate)
 			r.Put("/api/candidates/{id}", h.UpdateCandidate)
 			r.Delete("/api/candidates/{id}", h.DeleteCandidate)
 
-			r.Post("/api/loops", h.CreateLoop)
-			r.Put("/api/loops/{id}", h.UpdateLoop)
-			r.Delete("/api/loops/{id}", h.DeleteLoop)
+			r.Post("/api/jobs", h.CreateJob)
+			r.Put("/api/jobs/{id}", h.UpdateJob)
+			r.Delete("/api/jobs/{id}", h.DeleteJob)
 
-			r.Post("/api/loops/{id}/interviews", h.CreateInterview)
-			r.Put("/api/interviews/{id}", h.UpdateInterview)
-			r.Delete("/api/interviews/{id}", h.DeleteInterview)
+			r.Post("/api/jobs/{id}/applications", h.CreateApplication)
+			r.Put("/api/applications/{id}", h.UpdateApplication)
+			r.Delete("/api/applications/{id}", h.DeleteApplication)
+
+			r.Post("/api/applications/{id}/stages", h.CreateStage)
+			r.Put("/api/stages/{id}", h.UpdateStage)
+			r.Delete("/api/stages/{id}", h.DeleteStage)
+			r.Post("/api/stages/{id}/interviewers", h.AddStageInterviewer)
+			r.Delete("/api/stages/{id}/interviewers/{uid}", h.RemoveStageInterviewer)
 		})
 
 		// Admin-only
