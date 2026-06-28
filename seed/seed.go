@@ -22,7 +22,6 @@ func main() {
 		log.Fatal("DATABASE_URL is required")
 	}
 
-	// Run migrations
 	mig, err := migrate.New("file://migrations", dsn)
 	if err != nil {
 		log.Fatalf("migrate: %v", err)
@@ -39,20 +38,18 @@ func main() {
 
 	ctx := context.Background()
 
-	// Clean existing data
-	s.DB().Exec("TRUNCATE competency_ratings, notifications, feedback, interviews, interview_loops, competencies, candidates, users RESTART IDENTITY CASCADE")
+	// Clean existing data (new-model tables)
+	s.DB().Exec("TRUNCATE competency_ratings, notifications, feedback, stage_interviewers, stages, applications, jobs, competencies, candidates, users RESTART IDENTITY CASCADE")
 
-	// Admin user
+	// Users
 	adminHash, _ := api.HashPassword("admin")
 	admin := &models.User{Email: "admin@hire.demo", Name: "Admin User", PasswordHash: adminHash, Role: "admin"}
 	s.CreateUser(ctx, admin)
 
-	// Scheduler
 	schedHash, _ := api.HashPassword("scheduler")
 	sched := &models.User{Email: "scheduler@hire.demo", Name: "Sarah Scheduler", PasswordHash: schedHash, Role: "scheduler"}
 	s.CreateUser(ctx, sched)
 
-	// Interviewers
 	ivHash, _ := api.HashPassword("interviewer")
 	alice := &models.User{Email: "alice@hire.demo", Name: "Alice Engineer", PasswordHash: ivHash, Role: "interviewer"}
 	s.CreateUser(ctx, alice)
@@ -64,37 +61,67 @@ func main() {
 	s.CreateUser(ctx, dave)
 
 	// Competencies
-	s.CreateCompetency(ctx, &models.Competency{Name: "Problem Solving", RatingType: "levels", RatingsJSON: `["Learning","Owning","Advising"]`})
-	s.CreateCompetency(ctx, &models.Competency{Name: "Communication", RatingType: "levels", RatingsJSON: `["Learning","Owning","Advising"]`})
+	problemSolving := &models.Competency{Name: "Problem Solving", RatingType: "levels", RatingsJSON: `["Learning","Owning","Advising"]`}
+	s.CreateCompetency(ctx, problemSolving)
+	communication := &models.Competency{Name: "Communication", RatingType: "levels", RatingsJSON: `["Learning","Owning","Advising"]`}
+	s.CreateCompetency(ctx, communication)
 	s.CreateCompetency(ctx, &models.Competency{Name: "Technical Depth", RatingType: "stars", RatingsJSON: `{"min":1,"max":5}`})
 	s.CreateCompetency(ctx, &models.Competency{Name: "Culture Fit", RatingType: "stars", RatingsJSON: `{"min":1,"max":5}`})
 
-	// Candidates
-	jane := &models.Candidate{Name: "Jane Smith", Email: "jane@example.com", ResumeURL: "https://example.com/resume/jane", Status: "active"}
+	// Candidates (no status field anymore)
+	jane := &models.Candidate{Name: "Jane Smith", Email: "jane@example.com", ResumeURL: "https://example.com/resume/jane"}
 	s.CreateCandidate(ctx, jane)
-	mike := &models.Candidate{Name: "Mike Johnson", Email: "mike@example.com", ResumeURL: "https://example.com/resume/mike", Status: "active"}
+	mike := &models.Candidate{Name: "Mike Johnson", Email: "mike@example.com", ResumeURL: "https://example.com/resume/mike"}
 	s.CreateCandidate(ctx, mike)
 
-	// Interview loop for Jane
-	loop1 := &models.InterviewLoop{CandidateID: jane.ID, Status: "active", CreatedBy: sched.ID}
-	s.CreateLoop(ctx, loop1)
+	// Jobs
+	backend := &models.Job{Title: "Senior Backend Engineer", Description: "Design and build our core APIs and data systems.", HiringManager: "Priya Patel", Status: "open", CreatedBy: sched.ID}
+	s.CreateJob(ctx, backend)
+	designer := &models.Job{Title: "Product Designer", Description: "Own the end-to-end design of new product surfaces.", HiringManager: "Sam Lee", Status: "open", CreatedBy: sched.ID}
+	s.CreateJob(ctx, designer)
 
-	tomorrow := time.Now().Add(24 * time.Hour)
-	s.CreateInterview(ctx, &models.Interview{LoopID: loop1.ID, InterviewerID: alice.ID, FocusArea: "Coding", ScheduledAt: tomorrow, VideoLink: "https://meet.example.com/jane-coding", NotesForInterviewer: "Focus on data structures and algorithms", Status: "pending"})
-	s.CreateInterview(ctx, &models.Interview{LoopID: loop1.ID, InterviewerID: bob.ID, FocusArea: "System Design", ScheduledAt: tomorrow.Add(time.Hour), VideoLink: "https://meet.example.com/jane-design", NotesForInterviewer: "Distributed systems focus", Status: "pending"})
-	s.CreateInterview(ctx, &models.Interview{LoopID: loop1.ID, InterviewerID: carol.ID, FocusArea: "Behavioral", ScheduledAt: tomorrow.Add(2 * time.Hour), VideoLink: "https://meet.example.com/jane-behavioral", NotesForInterviewer: "Leadership and teamwork", Status: "pending"})
-	s.CreateInterview(ctx, &models.Interview{LoopID: loop1.ID, InterviewerID: dave.ID, FocusArea: "Architecture", ScheduledAt: tomorrow.Add(3 * time.Hour), VideoLink: "https://meet.example.com/jane-arch", NotesForInterviewer: "API design and scalability", Status: "pending"})
+	soon := time.Now().Add(24 * time.Hour)
 
-	// Interview loop for Mike (scheduling phase)
-	loop2 := &models.InterviewLoop{CandidateID: mike.ID, Status: "scheduling", CreatedBy: sched.ID}
-	s.CreateLoop(ctx, loop2)
-	s.CreateInterview(ctx, &models.Interview{LoopID: loop2.ID, InterviewerID: alice.ID, FocusArea: "Coding", ScheduledAt: tomorrow.Add(48 * time.Hour), VideoLink: "https://meet.example.com/mike-coding", Status: "pending"})
+	// Application 1: Jane -> Backend, two stages; phone screen has feedback submitted.
+	app1 := &models.Application{JobID: backend.ID, CandidateID: jane.ID, Status: "active", CreatedBy: sched.ID}
+	s.CreateApplication(ctx, app1)
 
-	// Notifications
-	s.CreateNotification(ctx, &models.Notification{UserID: alice.ID, Message: "You've been assigned a Coding interview", Link: "/interviews/1"})
-	s.CreateNotification(ctx, &models.Notification{UserID: bob.ID, Message: "You've been assigned a System Design interview", Link: "/interviews/2"})
-	s.CreateNotification(ctx, &models.Notification{UserID: carol.ID, Message: "You've been assigned a Behavioral interview", Link: "/interviews/3"})
-	s.CreateNotification(ctx, &models.Notification{UserID: dave.ID, Message: "You've been assigned an Architecture interview", Link: "/interviews/4"})
+	phone1 := &models.Stage{ApplicationID: app1.ID, Type: "phone_screen", FocusArea: "Recruiter Screen", ScheduledAt: soon, VideoLink: "https://meet.example.com/jane-phone", NotesForInterviewer: "Initial screen", Status: "pending"}
+	s.CreateStage(ctx, phone1)
+	s.AddStageInterviewer(ctx, phone1.ID, alice.ID)
+	// Alice files feedback -> completes the phone screen (single interviewer).
+	s.CreateFeedback(ctx, &models.Feedback{
+		StageID: phone1.ID, InterviewerID: alice.ID, Recommendation: "hire",
+		RecommendationReason: "Strong communicator, solid fundamentals.",
+		FreeFormNotes:        "Good rapport, move forward to onsite.",
+		CompetencyRatings: []models.CompetencyRating{
+			{CompetencyID: communication.ID, RatingValue: "Advising"},
+		},
+	})
+
+	coding1 := &models.Stage{ApplicationID: app1.ID, Type: "interview", FocusArea: "Coding", ScheduledAt: soon.Add(2 * time.Hour), VideoLink: "https://meet.example.com/jane-coding", NotesForInterviewer: "Data structures & algorithms", Status: "pending"}
+	s.CreateStage(ctx, coding1)
+	s.AddStageInterviewer(ctx, coding1.ID, bob.ID)
+
+	// Application 2: Mike -> Backend, one interview stage with TWO interviewers (panel-ish, both must file).
+	app2 := &models.Application{JobID: backend.ID, CandidateID: mike.ID, Status: "active", CreatedBy: sched.ID}
+	s.CreateApplication(ctx, app2)
+	sysd := &models.Stage{ApplicationID: app2.ID, Type: "interview", FocusArea: "System Design", ScheduledAt: soon.Add(3 * time.Hour), VideoLink: "https://meet.example.com/mike-design", NotesForInterviewer: "Distributed systems", Status: "pending"}
+	s.CreateStage(ctx, sysd)
+	s.AddStageInterviewer(ctx, sysd.ID, carol.ID)
+	s.AddStageInterviewer(ctx, sysd.ID, dave.ID)
+
+	// Application 3: Jane also applies to Designer (candidate on multiple jobs).
+	app3 := &models.Application{JobID: designer.ID, CandidateID: jane.ID, Status: "active", CreatedBy: sched.ID}
+	s.CreateApplication(ctx, app3)
+	phone3 := &models.Stage{ApplicationID: app3.ID, Type: "phone_screen", FocusArea: "Portfolio Review", ScheduledAt: soon.Add(4 * time.Hour), VideoLink: "https://meet.example.com/jane-portfolio", NotesForInterviewer: "Walk through portfolio", Status: "pending"}
+	s.CreateStage(ctx, phone3)
+	s.AddStageInterviewer(ctx, phone3.ID, carol.ID)
+
+	// A few notifications
+	s.CreateNotification(ctx, &models.Notification{UserID: bob.ID, Message: "You've been assigned an interview", Link: fmt.Sprintf("/interviews/%d", coding1.ID)})
+	s.CreateNotification(ctx, &models.Notification{UserID: carol.ID, Message: "You've been assigned an interview", Link: fmt.Sprintf("/interviews/%d", sysd.ID)})
+	s.CreateNotification(ctx, &models.Notification{UserID: sched.ID, Message: "Feedback submitted for a phone screen", Link: fmt.Sprintf("/applications/%d", app1.ID)})
 
 	fmt.Println("Seed data created successfully!")
 	fmt.Println()
