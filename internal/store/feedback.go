@@ -38,20 +38,35 @@ func (s *Store) CreateFeedback(ctx context.Context, fb *models.Feedback) (appRea
 		}
 	}
 
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE stages SET status = $1, updated_at = NOW() WHERE id = $2`,
-		models.StageStatusComplete, fb.StageID); err != nil {
-		return false, 0, fmt.Errorf("mark stage complete: %w", err)
+	// Mark the stage complete only once every assigned interviewer has submitted.
+	var remaining int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM stage_interviewers si
+		 WHERE si.stage_id = $1
+		   AND NOT EXISTS (
+		     SELECT 1 FROM feedback f
+		     WHERE f.stage_id = si.stage_id AND f.interviewer_id = si.interviewer_id
+		   )`, fb.StageID).Scan(&remaining); err != nil {
+		return false, 0, fmt.Errorf("count remaining interviewers: %w", err)
+	}
+	if remaining == 0 {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE stages SET status = $1, updated_at = NOW() WHERE id = $2`,
+			models.StageStatusComplete, fb.StageID); err != nil {
+			return false, 0, fmt.Errorf("mark stage complete: %w", err)
+		}
 	}
 
 	if err := tx.QueryRowContext(ctx,
 		`SELECT application_id FROM stages WHERE id = $1`, fb.StageID).Scan(&applicationID); err != nil {
 		return false, 0, fmt.Errorf("get application_id: %w", err)
 	}
+	// A stage counts as done when it is complete or canceled; a canceled stage
+	// must not block application readiness.
 	var incomplete int
 	if err := tx.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM stages WHERE application_id = $1 AND status != $2`,
-		applicationID, models.StageStatusComplete).Scan(&incomplete); err != nil {
+		`SELECT COUNT(*) FROM stages WHERE application_id = $1 AND status NOT IN ('complete','canceled')`,
+		applicationID).Scan(&incomplete); err != nil {
 		return false, 0, fmt.Errorf("count incomplete: %w", err)
 	}
 
