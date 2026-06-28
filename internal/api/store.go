@@ -23,28 +23,39 @@ type Store interface {
 	UpdateCandidate(ctx context.Context, c *models.Candidate) error
 	DeleteCandidate(ctx context.Context, id int64) error
 
-	// Interview Loops
-	CreateLoop(ctx context.Context, l *models.InterviewLoop) error
-	GetLoop(ctx context.Context, id int64) (*models.InterviewLoop, error)
-	GetLoopDetail(ctx context.Context, id int64) (*models.LoopDetail, error)
-	ListLoops(ctx context.Context, candidateID *int64, status *string, limit, offset int) ([]*models.InterviewLoop, error)
-	UpdateLoop(ctx context.Context, l *models.InterviewLoop) error
-	DeleteLoop(ctx context.Context, id int64) error
+	// Jobs
+	CreateJob(ctx context.Context, j *models.Job) error
+	GetJob(ctx context.Context, id int64) (*models.Job, error)
+	GetJobDetail(ctx context.Context, id int64) (*models.JobDetail, error)
+	ListJobs(ctx context.Context, limit, offset int) ([]*models.Job, error)
+	UpdateJob(ctx context.Context, j *models.Job) error
+	DeleteJob(ctx context.Context, id int64) error
 
-	// Interviews
-	CreateInterview(ctx context.Context, iv *models.Interview) error
-	GetInterview(ctx context.Context, id int64) (*models.Interview, error)
-	ListInterviewsByLoop(ctx context.Context, loopID int64, limit, offset int) ([]*models.Interview, error)
-	ListInterviewsByUser(ctx context.Context, userID int64, limit, offset int) ([]*models.Interview, error)
-	UpdateInterview(ctx context.Context, iv *models.Interview) error
-	DeleteInterview(ctx context.Context, id int64) error
+	// Applications
+	CreateApplication(ctx context.Context, a *models.Application) error
+	GetApplication(ctx context.Context, id int64) (*models.Application, error)
+	GetApplicationDetail(ctx context.Context, id int64) (*models.ApplicationDetail, error)
+	UpdateApplication(ctx context.Context, a *models.Application) error
+	DeleteApplication(ctx context.Context, id int64) error
+
+	// Stages
+	CreateStage(ctx context.Context, st *models.Stage) error
+	GetStage(ctx context.Context, id int64) (*models.Stage, error)
+	ListStagesByApplication(ctx context.Context, appID int64) ([]*models.Stage, error)
+	ListStagesByUser(ctx context.Context, userID int64, limit, offset int) ([]*models.MyStage, error)
+	UpdateStage(ctx context.Context, st *models.Stage) error
+	DeleteStage(ctx context.Context, id int64) error
+	AddStageInterviewer(ctx context.Context, stageID, interviewerID int64) error
+	RemoveStageInterviewer(ctx context.Context, stageID, interviewerID int64) error
+	IsStageInterviewer(ctx context.Context, stageID, interviewerID int64) (bool, error)
+	CountIncompleteStages(ctx context.Context, appID int64) (int, error)
 
 	// Feedback
-	CreateFeedback(ctx context.Context, fb *models.Feedback) (bool, error)
+	CreateFeedback(ctx context.Context, fb *models.Feedback) (appReady bool, applicationID int64, err error)
 	GetFeedback(ctx context.Context, id int64) (*models.Feedback, error)
-	GetFeedbackByInterview(ctx context.Context, interviewID int64) (*models.Feedback, error)
+	GetFeedbackByStageAndInterviewer(ctx context.Context, stageID, interviewerID int64) (*models.Feedback, error)
+	ListFeedbackByStage(ctx context.Context, stageID int64) ([]*models.Feedback, error)
 	UpdateFeedback(ctx context.Context, fb *models.Feedback) error
-	HasUserSubmittedFeedbackForLoop(ctx context.Context, loopID, userID int64) (bool, error)
 
 	// Competencies
 	CreateCompetency(ctx context.Context, c *models.Competency) error
@@ -58,7 +69,4 @@ type Store interface {
 	ListNotificationsByUser(ctx context.Context, userID int64, limit, offset int) ([]*models.Notification, error)
 	MarkNotificationRead(ctx context.Context, id, userID int64) error
 	CountUnreadNotifications(ctx context.Context, userID int64) (int, error)
-
-	// Aggregate queries
-	CountIncompleteInterviews(ctx context.Context, loopID int64) (int, error)
 }
