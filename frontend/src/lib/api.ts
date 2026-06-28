@@ -55,6 +55,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return res.json()
 }
 
+// List endpoints: the Go API serializes an empty slice as `null`, so coalesce
+// to [] here. Otherwise consumers that call .length/.map on the result crash.
+async function requestList<T>(method: string, path: string): Promise<T[]> {
+  return (await request<T[] | null>(method, path)) ?? []
+}
+
 // Auth
 export const auth = {
   login: (email: string, password: string) =>
@@ -70,7 +76,7 @@ export const users = {
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
     const qs = q.toString()
-    return request<User[]>('GET', `/users${qs ? '?' + qs : ''}`)
+    return requestList<User>('GET', `/users${qs ? '?' + qs : ''}`)
   },
   create: (data: CreateUserReq) => request<User>('POST', '/users', data),
   update: (id: number, data: CreateUserReq) => request<User>('PUT', `/users/${id}`, data),
@@ -84,7 +90,7 @@ export const candidates = {
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
     const qs = q.toString()
-    return request<Candidate[]>('GET', `/candidates${qs ? '?' + qs : ''}`)
+    return requestList<Candidate>('GET', `/candidates${qs ? '?' + qs : ''}`)
   },
   get: (id: number) => request<Candidate>('GET', `/candidates/${id}`),
   create: (data: Partial<Candidate>) => request<Candidate>('POST', '/candidates', data),
@@ -92,37 +98,48 @@ export const candidates = {
   delete: (id: number) => request<void>('DELETE', `/candidates/${id}`),
 }
 
-// Loops
-export const loops = {
-  list: (params?: { candidate_id?: number; status?: string; limit?: number; offset?: number }) => {
+// Jobs
+export const jobs = {
+  list: (params?: { limit?: number; offset?: number }) => {
     const q = new URLSearchParams()
-    if (params?.candidate_id) q.set('candidate_id', String(params.candidate_id))
-    if (params?.status) q.set('status', params.status)
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
     const qs = q.toString()
-    return request<InterviewLoop[]>('GET', `/loops${qs ? '?' + qs : ''}`)
+    return requestList<Job>('GET', `/jobs${qs ? '?' + qs : ''}`)
   },
-  get: (id: number) => request<LoopDetail>('GET', `/loops/${id}`),
-  create: (data: { candidate_id: number }) => request<InterviewLoop>('POST', '/loops', data),
-  update: (id: number, data: Partial<InterviewLoop>) => request<InterviewLoop>('PUT', `/loops/${id}`, data),
-  delete: (id: number) => request<void>('DELETE', `/loops/${id}`),
+  get: (id: number) => request<JobDetail>('GET', `/jobs/${id}`),
+  create: (data: Partial<Job>) => request<Job>('POST', '/jobs', data),
+  update: (id: number, data: Partial<Job>) => request<Job>('PUT', `/jobs/${id}`, data),
+  delete: (id: number) => request<void>('DELETE', `/jobs/${id}`),
 }
 
-// Interviews
-export const interviews = {
-  createInLoop: (loopId: number, data: Partial<Interview>) =>
-    request<Interview>('POST', `/loops/${loopId}/interviews`, data),
-  update: (id: number, data: Partial<Interview>) => request<Interview>('PUT', `/interviews/${id}`, data),
-  delete: (id: number) => request<void>('DELETE', `/interviews/${id}`),
-  listMine: () => request<Interview[]>('GET', '/me/interviews'),
+// Applications
+export const applications = {
+  get: (id: number) => request<ApplicationDetail>('GET', `/applications/${id}`),
+  create: (jobId: number, candidateId: number) =>
+    request<Application>('POST', `/jobs/${jobId}/applications`, { candidate_id: candidateId }),
+  update: (id: number, data: Partial<Application>) => request<Application>('PUT', `/applications/${id}`, data),
+  delete: (id: number) => request<void>('DELETE', `/applications/${id}`),
 }
 
-// Feedback
-export const feedback = {
-  get: (interviewId: number) => request<Feedback>('GET', `/interviews/${interviewId}/feedback`),
-  create: (interviewId: number, data: FeedbackCreate) => request<Feedback>('POST', `/interviews/${interviewId}/feedback`, data),
-  update: (id: number, data: Partial<Feedback>) => request<Feedback>('PUT', `/feedback/${id}`, data),
+// Stages
+export const stages = {
+  create: (applicationId: number, data: Partial<Stage>) =>
+    request<Stage>('POST', `/applications/${applicationId}/stages`, data),
+  update: (id: number, data: Partial<Stage>) => request<Stage>('PUT', `/stages/${id}`, data),
+  delete: (id: number) => request<void>('DELETE', `/stages/${id}`),
+  addInterviewer: (stageId: number, interviewerId: number) =>
+    request<void>('POST', `/stages/${stageId}/interviewers`, { interviewer_id: interviewerId }),
+  removeInterviewer: (stageId: number, interviewerId: number) =>
+    request<void>('DELETE', `/stages/${stageId}/interviewers/${interviewerId}`),
+  feedback: (stageId: number) => requestList<Feedback>('GET', `/stages/${stageId}/feedback`),
+  submitFeedback: (stageId: number, data: FeedbackCreate) =>
+    request<Feedback>('POST', `/stages/${stageId}/feedback`, data),
+}
+
+// Interviewer
+export const myStages = {
+  list: () => requestList<MyStage>('GET', '/me/stages'),
 }
 
 // Competencies
@@ -132,7 +149,7 @@ export const competencies = {
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
     const qs = q.toString()
-    return request<Competency[]>('GET', `/competencies${qs ? '?' + qs : ''}`)
+    return requestList<Competency>('GET', `/competencies${qs ? '?' + qs : ''}`)
   },
   create: (data: Partial<Competency>) => request<Competency>('POST', '/competencies', data),
   update: (id: number, data: Partial<Competency>) => request<Competency>('PUT', `/competencies/${id}`, data),
@@ -146,7 +163,7 @@ export const notifications = {
     if (params?.limit) q.set('limit', String(params.limit))
     if (params?.offset) q.set('offset', String(params.offset))
     const qs = q.toString()
-    return request<Notification[]>('GET', `/notifications${qs ? '?' + qs : ''}`)
+    return requestList<Notification>('GET', `/notifications${qs ? '?' + qs : ''}`)
   },
   markRead: (id: number) => request<void>('PUT', `/notifications/${id}/read`),
 }
@@ -172,50 +189,81 @@ export interface Candidate {
   name: string
   email: string
   resume_url: string
-  status: 'active' | 'hired' | 'rejected' | 'withdrawn'
   created_at: string
 }
 
-export interface InterviewLoop {
+export interface Job {
   id: number
-  candidate_id: number
-  status: 'scheduling' | 'active' | 'complete'
-  final_decision: string | null
-  debrief_notes: string | null
+  title: string
+  description: string
+  hiring_manager: string
+  status: 'open' | 'closed' | 'filled'
   created_by: number
   created_at: string
 }
 
-export interface LoopDetail extends InterviewLoop {
-  candidate: Candidate
-  interviews: InterviewWithFeedback[]
+export interface Application {
+  id: number
+  job_id: number
+  candidate_id: number
+  status: 'active' | 'rejected' | 'hired' | 'withdrawn'
+  final_decision: 'strong_hire' | 'hire' | 'no_hire' | 'strong_no_hire' | null
+  final_interview_notes: string | null
+  created_by: number
+  created_at: string
 }
 
-export interface Interview {
+export interface ApplicationSummary extends Application {
+  candidate_name: string
+  candidate_email: string
+}
+
+export interface JobDetail extends Job {
+  applications: ApplicationSummary[]
+}
+
+export interface Stage {
   id: number
-  loop_id: number
-  interviewer_id: number
+  application_id: number
+  type: 'phone_screen' | 'interview'
   focus_area: string
   scheduled_at: string
   video_link: string
   notes_for_interviewer: string
-  status: 'pending' | 'complete'
+  status: 'pending' | 'complete' | 'canceled'
   created_at: string
 }
 
-export interface InterviewWithFeedback extends Interview {
+export interface StageParticipant {
+  interviewer_id: number
   interviewer_name: string
-  feedback: Feedback | null
+  feedback?: Feedback | null
+}
+
+export interface StageWithFeedback extends Stage {
+  participants: StageParticipant[]
+}
+
+export interface ApplicationDetail extends Application {
+  job: Job
+  candidate: Candidate
+  stages: StageWithFeedback[]
+}
+
+export interface MyStage extends Stage {
+  candidate_name: string
+  job_title: string
+  has_my_feedback: boolean
 }
 
 export interface Feedback {
   id: number
-  interview_id: number
+  stage_id: number
+  interviewer_id: number
   recommendation: 'strong_hire' | 'hire' | 'no_hire' | 'strong_no_hire'
   recommendation_reason: string
   free_form_notes: string
-  submitted_at: string
-  competency_ratings: CompetencyRating[]
+  competency_ratings?: CompetencyRating[]
 }
 
 export interface FeedbackCreate {
