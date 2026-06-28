@@ -1,1 +1,88 @@
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens — Starbucks-inspired palette wired into shadcn/ui.
+   Components reference utilities like bg-primary / text-muted-foreground,
+   which Tailwind v4 resolves from the --color-* names declared in @theme.
+--------------------------------------------------------------------------- */
+:root {
+  --radius: 0.625rem;
+
+  /* Brand */
+  --house-green: #1e3932; /* deep "House Green" — text, nav */
+  --starbucks-green: #00704a; /* the cup green — primary */
+  --accent-gold: #cba258; /* sparing highlight */
+
+  /* Surfaces & text */
+  --background: #f7f6f2; /* warm cream page */
+  --foreground: #1e3932;
+  --card: #ffffff;
+  --card-foreground: #1e3932;
+  --popover: #ffffff;
+  --popover-foreground: #1e3932;
+
+  /* Primary (Starbucks green) */
+  --primary: #00704a;
+  --primary-foreground: #ffffff;
+
+  /* Secondary — soft green tint */
+  --secondary: #e3efe9;
+  --secondary-foreground: #1e3932;
+
+  /* Muted */
+  --muted: #f1f0eb;
+  --muted-foreground: #6b6b66;
+
+  /* Accent — light green hover surfaces */
+  --accent: #e3efe9;
+  --accent-foreground: #1e3932;
+
+  /* Status */
+  --destructive: #c0392b;
+
+  /* Lines & focus */
+  --border: #e3e2dd;
+  --input: #e3e2dd;
+  --ring: #00704a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Brand helpers for one-off use */
+  --color-house-green: var(--house-green);
+  --color-starbucks-green: var(--starbucks-green);
+  --color-accent-gold: var(--accent-gold);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
