@@ -1,8 +1,11 @@
 package store
 
 import (
+	"context"
 	"os"
 	"testing"
+
+	"hire/internal/models"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -33,7 +36,17 @@ func newTestStore(t *testing.T) *Store {
 	if err != nil {
 		t.Fatalf("newTestStore: %v", err)
 	}
-	s.db.Exec("TRUNCATE competency_ratings, notifications, feedback, interviews, interview_loops, competencies, candidates, users RESTART IDENTITY CASCADE")
+	s.db.Exec("TRUNCATE competency_ratings, notifications, feedback, stage_interviewers, stages, applications, jobs, competencies, candidates, users RESTART IDENTITY CASCADE")
 	t.Cleanup(func() { s.Close() })
 	return s
+}
+
+// createTestUser inserts a user and returns its ID. Shared helper for store tests.
+func createTestUser(t *testing.T, s *Store, email, role string) int64 {
+	t.Helper()
+	u := &models.User{Email: email, Name: email, Role: role, PasswordHash: "x"}
+	if err := s.CreateUser(context.Background(), u); err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	return u.ID
 }

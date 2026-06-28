@@ -8,7 +8,7 @@ import (
 
 func TestCreateAndGetCandidate(t *testing.T) {
 	s := newTestStore(t)
-	c := &models.Candidate{Name: "Jane Doe", Email: "jane@example.com", ResumeURL: "https://resume.com/jane", Status: "active"}
+	c := &models.Candidate{Name: "Jane Doe", Email: "jane@example.com", ResumeURL: "https://resume.com/jane"}
 	if err := s.CreateCandidate(context.Background(), c); err != nil {
 		t.Fatalf("CreateCandidate: %v", err)
 	}
@@ -26,8 +26,8 @@ func TestCreateAndGetCandidate(t *testing.T) {
 
 func TestListCandidates(t *testing.T) {
 	s := newTestStore(t)
-	s.CreateCandidate(context.Background(), &models.Candidate{Name: "A", Email: "a@a.com", Status: "active"})
-	s.CreateCandidate(context.Background(), &models.Candidate{Name: "B", Email: "b@b.com", Status: "active"})
+	s.CreateCandidate(context.Background(), &models.Candidate{Name: "A", Email: "a@a.com"})
+	s.CreateCandidate(context.Background(), &models.Candidate{Name: "B", Email: "b@b.com"})
 	list, err := s.ListCandidates(context.Background(), 50, 0)
 	if err != nil {
 		t.Fatalf("ListCandidates: %v", err)
@@ -39,21 +39,21 @@ func TestListCandidates(t *testing.T) {
 
 func TestUpdateCandidate(t *testing.T) {
 	s := newTestStore(t)
-	c := &models.Candidate{Name: "X", Email: "x@x.com", Status: "active"}
+	c := &models.Candidate{Name: "X", Email: "x@x.com"}
 	s.CreateCandidate(context.Background(), c)
-	c.Status = "hired"
+	c.Name = "Xavier"
 	if err := s.UpdateCandidate(context.Background(), c); err != nil {
 		t.Fatalf("UpdateCandidate: %v", err)
 	}
 	got, _ := s.GetCandidate(context.Background(), c.ID)
-	if got.Status != "hired" {
-		t.Errorf("status = %q, want hired", got.Status)
+	if got.Name != "Xavier" {
+		t.Errorf("name = %q, want Xavier", got.Name)
 	}
 }
 
 func TestDeleteCandidate(t *testing.T) {
 	s := newTestStore(t)
-	c := &models.Candidate{Name: "Y", Email: "y@y.com", Status: "active"}
+	c := &models.Candidate{Name: "Y", Email: "y@y.com"}
 	s.CreateCandidate(context.Background(), c)
 	if err := s.DeleteCandidate(context.Background(), c.ID); err != nil {
 		t.Fatalf("DeleteCandidate: %v", err)

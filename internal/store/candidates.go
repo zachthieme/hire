@@ -9,8 +9,8 @@ import (
 
 func (s *Store) CreateCandidate(ctx context.Context, c *models.Candidate) error {
 	err := s.db.QueryRowContext(ctx,
-		`INSERT INTO candidates (name, email, resume_url, status) VALUES ($1, $2, $3, $4) RETURNING id`,
-		c.Name, c.Email, c.ResumeURL, c.Status,
+		`INSERT INTO candidates (name, email, resume_url) VALUES ($1, $2, $3) RETURNING id`,
+		c.Name, c.Email, c.ResumeURL,
 	).Scan(&c.ID)
 	if err != nil {
 		return fmt.Errorf("insert candidate: %w", err)
@@ -21,8 +21,8 @@ func (s *Store) CreateCandidate(ctx context.Context, c *models.Candidate) error 
 func (s *Store) GetCandidate(ctx context.Context, id int64) (*models.Candidate, error) {
 	var c models.Candidate
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, name, email, resume_url, status, created_at, updated_at FROM candidates WHERE id = $1`, id,
-	).Scan(&c.ID, &c.Name, &c.Email, &c.ResumeURL, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+		`SELECT id, name, email, resume_url, created_at, updated_at FROM candidates WHERE id = $1`, id,
+	).Scan(&c.ID, &c.Name, &c.Email, &c.ResumeURL, &c.CreatedAt, &c.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -31,7 +31,7 @@ func (s *Store) GetCandidate(ctx context.Context, id int64) (*models.Candidate, 
 
 func (s *Store) ListCandidates(ctx context.Context, limit, offset int) ([]*models.Candidate, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, name, email, resume_url, status, created_at, updated_at FROM candidates ORDER BY id DESC LIMIT $1 OFFSET $2`, limit, offset,
+		`SELECT id, name, email, resume_url, created_at, updated_at FROM candidates ORDER BY id DESC LIMIT $1 OFFSET $2`, limit, offset,
 	)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (s *Store) ListCandidates(ctx context.Context, limit, offset int) ([]*model
 	var out []*models.Candidate
 	for rows.Next() {
 		var c models.Candidate
-		if err := rows.Scan(&c.ID, &c.Name, &c.Email, &c.ResumeURL, &c.Status, &c.CreatedAt, &c.UpdatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name, &c.Email, &c.ResumeURL, &c.CreatedAt, &c.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, &c)
@@ -50,8 +50,8 @@ func (s *Store) ListCandidates(ctx context.Context, limit, offset int) ([]*model
 
 func (s *Store) UpdateCandidate(ctx context.Context, c *models.Candidate) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE candidates SET name = $1, email = $2, resume_url = $3, status = $4, updated_at = NOW() WHERE id = $5`,
-		c.Name, c.Email, c.ResumeURL, c.Status, c.ID,
+		`UPDATE candidates SET name = $1, email = $2, resume_url = $3, updated_at = NOW() WHERE id = $4`,
+		c.Name, c.Email, c.ResumeURL, c.ID,
 	)
 	if err != nil {
 		return err

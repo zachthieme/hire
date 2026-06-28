@@ -4,65 +4,70 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"hire/internal/models"
 )
 
-func (s *Store) CreateFeedback(ctx context.Context, fb *models.Feedback) (bool, error) {
+// CreateFeedback inserts feedback for (stage, interviewer), records competency
+// ratings, marks the stage complete, and reports whether the whole application
+// is now ready for a decision (all stages complete).
+func (s *Store) CreateFeedback(ctx context.Context, fb *models.Feedback) (appReady bool, applicationID int64, err error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, err
+		return false, 0, err
 	}
 	defer tx.Rollback()
 
 	err = tx.QueryRowContext(ctx,
-		`INSERT INTO feedback (interview_id, recommendation, recommendation_reason, free_form_notes) VALUES ($1, $2, $3, $4) RETURNING id`,
-		fb.InterviewID, fb.Recommendation, fb.RecommendationReason, fb.FreeFormNotes,
+		`INSERT INTO feedback (stage_id, interviewer_id, recommendation, recommendation_reason, free_form_notes)
+		 VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+		fb.StageID, fb.InterviewerID, fb.Recommendation, fb.RecommendationReason, fb.FreeFormNotes,
 	).Scan(&fb.ID)
 	if err != nil {
-		return false, fmt.Errorf("insert feedback: %w", err)
+		return false, 0, fmt.Errorf("insert feedback: %w", err)
 	}
 
 	for i := range fb.CompetencyRatings {
 		cr := &fb.CompetencyRatings[i]
 		cr.FeedbackID = fb.ID
-		err := tx.QueryRowContext(ctx,
+		if err := tx.QueryRowContext(ctx,
 			`INSERT INTO competency_ratings (feedback_id, competency_id, rating_value) VALUES ($1, $2, $3) RETURNING id`,
 			cr.FeedbackID, cr.CompetencyID, cr.RatingValue,
-		).Scan(&cr.ID)
-		if err != nil {
-			return false, fmt.Errorf("insert competency rating: %w", err)
+		).Scan(&cr.ID); err != nil {
+			return false, 0, fmt.Errorf("insert competency rating: %w", err)
 		}
 	}
 
-	// Mark the interview as complete
-	if _, err := tx.ExecContext(ctx, `UPDATE interviews SET status = $1, updated_at = NOW() WHERE id = $2`, models.InterviewStatusComplete, fb.InterviewID); err != nil {
-		return false, fmt.Errorf("mark interview complete: %w", err)
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE stages SET status = $1, updated_at = NOW() WHERE id = $2`,
+		models.StageStatusComplete, fb.StageID); err != nil {
+		return false, 0, fmt.Errorf("mark stage complete: %w", err)
 	}
 
-	// Atomically check if all interviews in this loop are now complete
-	var loopID int64
-	if err := tx.QueryRowContext(ctx, `SELECT loop_id FROM interviews WHERE id = $1`, fb.InterviewID).Scan(&loopID); err != nil {
-		return false, fmt.Errorf("get loop_id: %w", err)
-	}
-	var incompleteCount int
 	if err := tx.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM interviews WHERE loop_id = $1 AND status != $2`, loopID, models.InterviewStatusComplete,
-	).Scan(&incompleteCount); err != nil {
-		return false, fmt.Errorf("count incomplete: %w", err)
+		`SELECT application_id FROM stages WHERE id = $1`, fb.StageID).Scan(&applicationID); err != nil {
+		return false, 0, fmt.Errorf("get application_id: %w", err)
+	}
+	var incomplete int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM stages WHERE application_id = $1 AND status != $2`,
+		applicationID, models.StageStatusComplete).Scan(&incomplete); err != nil {
+		return false, 0, fmt.Errorf("count incomplete: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return false, fmt.Errorf("commit: %w", err)
+		return false, 0, fmt.Errorf("commit: %w", err)
 	}
-	return incompleteCount == 0, nil
+	return incomplete == 0, applicationID, nil
 }
 
 func (s *Store) GetFeedback(ctx context.Context, id int64) (*models.Feedback, error) {
 	var fb models.Feedback
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, interview_id, recommendation, recommendation_reason, free_form_notes, submitted_at, updated_at
+		`SELECT id, stage_id, interviewer_id, recommendation, recommendation_reason, free_form_notes, submitted_at, updated_at
 		 FROM feedback WHERE id = $1`, id,
-	).Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt)
+	).Scan(&fb.ID, &fb.StageID, &fb.InterviewerID, &fb.Recommendation, &fb.RecommendationReason,
+		&fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -73,12 +78,13 @@ func (s *Store) GetFeedback(ctx context.Context, id int64) (*models.Feedback, er
 	return &fb, err
 }
 
-func (s *Store) GetFeedbackByInterview(ctx context.Context, interviewID int64) (*models.Feedback, error) {
+func (s *Store) GetFeedbackByStageAndInterviewer(ctx context.Context, stageID, interviewerID int64) (*models.Feedback, error) {
 	var fb models.Feedback
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, interview_id, recommendation, recommendation_reason, free_form_notes, submitted_at, updated_at
-		 FROM feedback WHERE interview_id = $1`, interviewID,
-	).Scan(&fb.ID, &fb.InterviewID, &fb.Recommendation, &fb.RecommendationReason, &fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt)
+		`SELECT id, stage_id, interviewer_id, recommendation, recommendation_reason, free_form_notes, submitted_at, updated_at
+		 FROM feedback WHERE stage_id = $1 AND interviewer_id = $2`, stageID, interviewerID,
+	).Scan(&fb.ID, &fb.StageID, &fb.InterviewerID, &fb.Recommendation, &fb.RecommendationReason,
+		&fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, ErrNotFound
 	}
@@ -87,6 +93,35 @@ func (s *Store) GetFeedbackByInterview(ctx context.Context, interviewID int64) (
 	}
 	fb.CompetencyRatings, err = s.listCompetencyRatings(ctx, fb.ID)
 	return &fb, err
+}
+
+func (s *Store) ListFeedbackByStage(ctx context.Context, stageID int64) ([]*models.Feedback, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, stage_id, interviewer_id, recommendation, recommendation_reason, free_form_notes, submitted_at, updated_at
+		 FROM feedback WHERE stage_id = $1 ORDER BY submitted_at`, stageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*models.Feedback
+	for rows.Next() {
+		var fb models.Feedback
+		if err := rows.Scan(&fb.ID, &fb.StageID, &fb.InterviewerID, &fb.Recommendation, &fb.RecommendationReason,
+			&fb.FreeFormNotes, &fb.SubmittedAt, &fb.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, &fb)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, fb := range out {
+		fb.CompetencyRatings, err = s.listCompetencyRatings(ctx, fb.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 func (s *Store) UpdateFeedback(ctx context.Context, fb *models.Feedback) error {
@@ -111,39 +146,22 @@ func (s *Store) UpdateFeedback(ctx context.Context, fb *models.Feedback) error {
 		return ErrNotFound
 	}
 
-	// Replace competency ratings
 	if len(fb.CompetencyRatings) > 0 {
-		_, err = tx.ExecContext(ctx, `DELETE FROM competency_ratings WHERE feedback_id = $1`, fb.ID)
-		if err != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM competency_ratings WHERE feedback_id = $1`, fb.ID); err != nil {
 			return err
 		}
 		for i := range fb.CompetencyRatings {
 			cr := &fb.CompetencyRatings[i]
 			cr.FeedbackID = fb.ID
-			err := tx.QueryRowContext(ctx,
+			if err := tx.QueryRowContext(ctx,
 				`INSERT INTO competency_ratings (feedback_id, competency_id, rating_value) VALUES ($1, $2, $3) RETURNING id`,
 				cr.FeedbackID, cr.CompetencyID, cr.RatingValue,
-			).Scan(&cr.ID)
-			if err != nil {
+			).Scan(&cr.ID); err != nil {
 				return err
 			}
 		}
 	}
-
 	return tx.Commit()
-}
-
-func (s *Store) HasUserSubmittedFeedbackForLoop(ctx context.Context, loopID, userID int64) (bool, error) {
-	var count int
-	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM feedback f
-		 JOIN interviews i ON f.interview_id = i.id
-		 WHERE i.loop_id = $1 AND i.interviewer_id = $2`, loopID, userID,
-	).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
 }
 
 func (s *Store) listCompetencyRatings(ctx context.Context, feedbackID int64) ([]models.CompetencyRating, error) {
