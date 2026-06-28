@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
 import { candidates as candApi, type Candidate } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,13 +22,6 @@ export default function CandidatesList() {
   const [form, setForm] = useState({ name: '', email: '', resume_url: '' })
   const resetForm = () => setForm({ name: '', email: '', resume_url: '' })
 
-  const statusColor: Record<string, string> = {
-    active: 'bg-blue-100 text-blue-800',
-    hired: 'bg-green-100 text-green-800',
-    rejected: 'bg-red-100 text-red-800',
-    withdrawn: 'bg-gray-100 text-gray-800',
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -40,7 +32,7 @@ export default function CandidatesList() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Add Candidate</DialogTitle></DialogHeader>
-            <form onSubmit={e => { e.preventDefault(); createCand.mutate({ ...form, status: 'active' }) }} className="space-y-4">
+            <form onSubmit={e => { e.preventDefault(); createCand.mutate({ ...form }) }} className="space-y-4">
               <div className="space-y-2">
                 <Label>Name</Label>
                 <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
@@ -65,20 +57,14 @@ export default function CandidatesList() {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
-            <TableHead>Status</TableHead>
             <TableHead>Added</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {cands.map((c: Candidate) => (
             <TableRow key={c.id}>
-              <TableCell>
-                <Link to={`/candidates/${c.id}`} className="font-medium text-blue-600 hover:underline">{c.name}</Link>
-              </TableCell>
+              <TableCell className="font-medium">{c.name}</TableCell>
               <TableCell>{c.email}</TableCell>
-              <TableCell>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${statusColor[c.status] || ''}`}>{c.status}</span>
-              </TableCell>
               <TableCell className="text-sm text-gray-500">{new Date(c.created_at).toLocaleDateString()}</TableCell>
             </TableRow>
           ))}
