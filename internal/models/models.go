@@ -12,49 +12,6 @@ const (
 // ValidRoles is the set of allowed user roles.
 var ValidRoles = []string{RoleAdmin, RoleScheduler, RoleInterviewer}
 
-// Candidate statuses.
-const (
-	CandidateStatusActive    = "active"
-	CandidateStatusHired     = "hired"
-	CandidateStatusRejected  = "rejected"
-	CandidateStatusWithdrawn = "withdrawn"
-)
-
-// ValidCandidateStatuses is the set of allowed candidate statuses.
-var ValidCandidateStatuses = []string{CandidateStatusActive, CandidateStatusHired, CandidateStatusRejected, CandidateStatusWithdrawn}
-
-// Interview loop statuses.
-const (
-	LoopStatusScheduling = "scheduling"
-	LoopStatusActive     = "active"
-	LoopStatusComplete   = "complete"
-)
-
-// ValidLoopStatuses is the set of allowed loop statuses.
-var ValidLoopStatuses = []string{LoopStatusScheduling, LoopStatusActive, LoopStatusComplete}
-
-// Interview statuses.
-const (
-	InterviewStatusPending  = "pending"
-	InterviewStatusComplete = "complete"
-)
-
-// ValidInterviewStatuses is the set of allowed interview statuses.
-var ValidInterviewStatuses = []string{InterviewStatusPending, InterviewStatusComplete}
-
-// ValidLoopTransitions defines allowed status transitions for interview loops.
-var ValidLoopTransitions = map[string][]string{
-	LoopStatusScheduling: {LoopStatusActive},
-	LoopStatusActive:     {LoopStatusComplete},
-	LoopStatusComplete:   {}, // terminal
-}
-
-// ValidInterviewTransitions defines allowed status transitions for interviews.
-var ValidInterviewTransitions = map[string][]string{
-	InterviewStatusPending:  {InterviewStatusComplete},
-	InterviewStatusComplete: {}, // terminal — feedback has been submitted
-}
-
 // Feedback recommendations.
 const (
 	RecommendationStrongHire   = "strong_hire"
@@ -75,6 +32,57 @@ const (
 // ValidRatingTypes is the set of allowed rating types.
 var ValidRatingTypes = []string{RatingTypeLevels, RatingTypeStars}
 
+// Job statuses.
+const (
+	JobStatusOpen   = "open"
+	JobStatusClosed = "closed"
+	JobStatusFilled = "filled"
+)
+
+var ValidJobStatuses = []string{JobStatusOpen, JobStatusClosed, JobStatusFilled}
+
+var ValidJobTransitions = map[string][]string{
+	JobStatusOpen:   {JobStatusClosed, JobStatusFilled},
+	JobStatusClosed: {JobStatusOpen},
+	JobStatusFilled: {JobStatusOpen},
+}
+
+// Application statuses.
+const (
+	ApplicationStatusActive    = "active"
+	ApplicationStatusRejected  = "rejected"
+	ApplicationStatusHired     = "hired"
+	ApplicationStatusWithdrawn = "withdrawn"
+)
+
+var ValidApplicationStatuses = []string{
+	ApplicationStatusActive, ApplicationStatusRejected, ApplicationStatusHired, ApplicationStatusWithdrawn,
+}
+
+var ValidApplicationTransitions = map[string][]string{
+	ApplicationStatusActive:    {ApplicationStatusRejected, ApplicationStatusHired, ApplicationStatusWithdrawn},
+	ApplicationStatusRejected:  {ApplicationStatusActive},
+	ApplicationStatusHired:     {ApplicationStatusActive},
+	ApplicationStatusWithdrawn: {ApplicationStatusActive},
+}
+
+// Stage types.
+const (
+	StageTypePhoneScreen = "phone_screen"
+	StageTypeInterview   = "interview"
+)
+
+var ValidStageTypes = []string{StageTypePhoneScreen, StageTypeInterview}
+
+// Stage statuses.
+const (
+	StageStatusPending  = "pending"
+	StageStatusComplete = "complete"
+	StageStatusCanceled = "canceled"
+)
+
+var ValidStageStatuses = []string{StageStatusPending, StageStatusComplete, StageStatusCanceled}
+
 type User struct {
 	ID           int64     `json:"id"`
 	Email        string    `json:"email"`
@@ -90,26 +98,37 @@ type Candidate struct {
 	Name      string    `json:"name"`
 	Email     string    `json:"email"`
 	ResumeURL string    `json:"resume_url"`
-	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type InterviewLoop struct {
+type Job struct {
 	ID            int64     `json:"id"`
-	CandidateID   int64     `json:"candidate_id"`
+	Title         string    `json:"title"`
+	Description   string    `json:"description"`
+	HiringManager string    `json:"hiring_manager"`
 	Status        string    `json:"status"`
-	FinalDecision *string   `json:"final_decision"`
-	DebriefNotes  *string   `json:"debrief_notes"`
 	CreatedBy     int64     `json:"created_by"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-type Interview struct {
+type Application struct {
 	ID                  int64     `json:"id"`
-	LoopID              int64     `json:"loop_id"`
-	InterviewerID       int64     `json:"interviewer_id"`
+	JobID               int64     `json:"job_id"`
+	CandidateID         int64     `json:"candidate_id"`
+	Status              string    `json:"status"`
+	FinalDecision       *string   `json:"final_decision"`
+	FinalInterviewNotes *string   `json:"final_interview_notes"`
+	CreatedBy           int64     `json:"created_by"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+type Stage struct {
+	ID                  int64     `json:"id"`
+	ApplicationID       int64     `json:"application_id"`
+	Type                string    `json:"type"`
 	FocusArea           string    `json:"focus_area"`
 	ScheduledAt         time.Time `json:"scheduled_at"`
 	VideoLink           string    `json:"video_link"`
@@ -119,9 +138,17 @@ type Interview struct {
 	UpdatedAt           time.Time `json:"updated_at"`
 }
 
+type StageInterviewer struct {
+	ID              int64  `json:"id"`
+	StageID         int64  `json:"stage_id"`
+	InterviewerID   int64  `json:"interviewer_id"`
+	InterviewerName string `json:"interviewer_name,omitempty"`
+}
+
 type Feedback struct {
 	ID                   int64              `json:"id"`
-	InterviewID          int64              `json:"interview_id"`
+	StageID              int64              `json:"stage_id"`
+	InterviewerID        int64              `json:"interviewer_id"`
 	Recommendation       string             `json:"recommendation"`
 	RecommendationReason string             `json:"recommendation_reason"`
 	FreeFormNotes        string             `json:"free_form_notes"`
@@ -155,15 +182,45 @@ type Notification struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// LoopDetail is the expanded view returned by GET /api/loops/:id.
-type LoopDetail struct {
-	InterviewLoop
-	Candidate  Candidate               `json:"candidate"`
-	Interviews []InterviewWithFeedback `json:"interviews"`
+// JobDetail is a job plus its candidate applications.
+type JobDetail struct {
+	Job
+	Applications []ApplicationSummary `json:"applications"`
 }
 
-type InterviewWithFeedback struct {
-	Interview
+// ApplicationSummary is an application enriched with the candidate's name/email.
+type ApplicationSummary struct {
+	Application
+	CandidateName  string `json:"candidate_name"`
+	CandidateEmail string `json:"candidate_email"`
+}
+
+// ApplicationDetail is the debrief view: application + job + candidate + stages.
+type ApplicationDetail struct {
+	Application
+	Job       Job                 `json:"job"`
+	Candidate Candidate           `json:"candidate"`
+	Stages    []StageWithFeedback `json:"stages"`
+}
+
+// StageWithFeedback is a stage plus each assigned interviewer and their feedback.
+type StageWithFeedback struct {
+	Stage
+	Participants []StageParticipant `json:"participants"`
+}
+
+// StageParticipant is one interviewer on a stage plus their feedback (if filed).
+type StageParticipant struct {
+	InterviewerID   int64     `json:"interviewer_id"`
 	InterviewerName string    `json:"interviewer_name"`
 	Feedback        *Feedback `json:"feedback,omitempty"`
+}
+
+// MyStage is a stage assigned to the current interviewer, enriched for the
+// "My Interviews" list (candidate + job titles).
+type MyStage struct {
+	Stage
+	CandidateName string `json:"candidate_name"`
+	JobTitle      string `json:"job_title"`
+	HasMyFeedback bool   `json:"has_my_feedback"`
 }
