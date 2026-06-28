@@ -41,7 +41,7 @@ func newTestHandler(t *testing.T) (*Handler, *store.Store) {
 	if err != nil {
 		t.Fatalf("newTestHandler: %v", err)
 	}
-	s.DB().Exec("TRUNCATE competency_ratings, notifications, feedback, interviews, interview_loops, competencies, candidates, users RESTART IDENTITY CASCADE")
+	s.DB().Exec("TRUNCATE competency_ratings, notifications, feedback, stage_interviewers, stages, applications, jobs, competencies, candidates, users RESTART IDENTITY CASCADE")
 	t.Cleanup(func() { s.Close() })
 	h := NewHandler(s, "test-secret-must-be-at-least-32-chars", []string{"*"})
 	return h, s

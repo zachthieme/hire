@@ -54,7 +54,7 @@ func TestCandidateCRUD(t *testing.T) {
 	})
 
 	// Create
-	body, _ := json.Marshal(map[string]string{"name": "Jane", "email": "jane@test.com", "resume_url": "", "status": "active"})
+	body, _ := json.Marshal(map[string]string{"name": "Jane", "email": "jane@test.com", "resume_url": ""})
 	req := httptest.NewRequest("POST", "/api/candidates", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	w := httptest.NewRecorder()

@@ -50,11 +50,10 @@ func TestAuthorizationBoundaries(t *testing.T) {
 		// Interviewer cannot access scheduler endpoints
 		{"interviewer cannot create candidate", "POST", "/api/candidates", ivToken, map[string]string{"name": "J", "email": "j@j.com"}, http.StatusForbidden},
 		{"interviewer cannot list candidates", "GET", "/api/candidates", ivToken, nil, http.StatusForbidden},
-		{"interviewer cannot create loop", "POST", "/api/loops", ivToken, map[string]any{"candidate_id": 1}, http.StatusForbidden},
-		{"interviewer cannot update loop", "PUT", "/api/loops/1", ivToken, map[string]string{"status": "active"}, http.StatusForbidden},
-		{"interviewer cannot delete loop", "DELETE", "/api/loops/1", ivToken, nil, http.StatusForbidden},
-		{"interviewer cannot create interview", "POST", "/api/loops/1/interviews", ivToken, map[string]any{"interviewer_id": 1, "focus_area": "test"}, http.StatusForbidden},
-		{"interviewer cannot delete interview", "DELETE", "/api/interviews/1", ivToken, nil, http.StatusForbidden},
+		{"interviewer cannot create job", "POST", "/api/jobs", ivToken, map[string]any{"title": "BE"}, http.StatusForbidden},
+		{"interviewer cannot create application", "POST", "/api/jobs/1/applications", ivToken, map[string]any{"candidate_id": 1}, http.StatusForbidden},
+		{"interviewer cannot create stage", "POST", "/api/applications/1/stages", ivToken, map[string]any{"type": "interview"}, http.StatusForbidden},
+		{"interviewer cannot add stage interviewer", "POST", "/api/stages/1/interviewers", ivToken, map[string]any{"interviewer_id": 1}, http.StatusForbidden},
 
 		// Scheduler cannot access admin-only endpoints
 		{"scheduler cannot create user", "POST", "/api/users", schedToken, map[string]string{"email": "x@x.com", "name": "X", "password": "12345678", "role": "interviewer"}, http.StatusForbidden},
@@ -66,14 +65,16 @@ func TestAuthorizationBoundaries(t *testing.T) {
 		// Scheduler CAN access scheduler endpoints
 		{"scheduler can list candidates", "GET", "/api/candidates", schedToken, nil, http.StatusOK},
 		{"scheduler can list users", "GET", "/api/users", schedToken, nil, http.StatusOK},
+		{"scheduler can create job", "POST", "/api/jobs", schedToken, map[string]any{"title": "BE"}, http.StatusCreated},
 
 		// Unauthenticated access denied
 		{"no token on protected route", "GET", "/api/me", "", nil, http.StatusUnauthorized},
 
 		// All authenticated users can access common endpoints
 		{"interviewer can list competencies", "GET", "/api/competencies", ivToken, nil, http.StatusOK},
-		{"interviewer can get own interviews", "GET", "/api/me/interviews", ivToken, nil, http.StatusOK},
-		{"interviewer can list loops", "GET", "/api/loops", ivToken, nil, http.StatusOK},
+		{"interviewer can get own stages", "GET", "/api/me/stages", ivToken, nil, http.StatusOK},
+		{"interviewer can list jobs", "GET", "/api/jobs", ivToken, nil, http.StatusOK},
+		{"admin can list jobs", "GET", "/api/jobs", adminToken, nil, http.StatusOK},
 		{"admin can list competencies", "GET", "/api/competencies", adminToken, nil, http.StatusOK},
 	}
 
