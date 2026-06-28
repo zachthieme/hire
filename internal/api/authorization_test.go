@@ -61,6 +61,7 @@ func TestAuthorizationBoundaries(t *testing.T) {
 		{"scheduler cannot delete user", "DELETE", "/api/users/1", schedToken, nil, http.StatusForbidden},
 		{"scheduler cannot create competency", "POST", "/api/competencies", schedToken, map[string]string{"name": "Test", "rating_type": "levels", "ratings_json": `["a","b"]`}, http.StatusForbidden},
 		{"scheduler cannot delete competency", "DELETE", "/api/competencies/1", schedToken, nil, http.StatusForbidden},
+		{"scheduler cannot submit feedback", "POST", "/api/stages/1/feedback", schedToken, map[string]any{"recommendation": "hire"}, http.StatusForbidden},
 
 		// Scheduler CAN access scheduler endpoints
 		{"scheduler can list candidates", "GET", "/api/candidates", schedToken, nil, http.StatusOK},

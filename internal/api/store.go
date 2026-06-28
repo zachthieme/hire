@@ -48,7 +48,6 @@ type Store interface {
 	AddStageInterviewer(ctx context.Context, stageID, interviewerID int64) error
 	RemoveStageInterviewer(ctx context.Context, stageID, interviewerID int64) error
 	IsStageInterviewer(ctx context.Context, stageID, interviewerID int64) (bool, error)
-	CountIncompleteStages(ctx context.Context, appID int64) (int, error)
 
 	// Feedback
 	CreateFeedback(ctx context.Context, fb *models.Feedback) (appReady bool, applicationID int64, err error)

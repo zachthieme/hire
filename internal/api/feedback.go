@@ -37,13 +37,7 @@ func (h *Handler) GetStageFeedback(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !submitted {
-			own := make([]*models.Feedback, 0)
-			for _, f := range list {
-				if f.InterviewerID == uid {
-					own = append(own, f)
-				}
-			}
-			list = own
+			list = make([]*models.Feedback, 0)
 		}
 	}
 	writeJSON(w, http.StatusOK, list)
@@ -56,10 +50,12 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid id")
 		return
 	}
+	role := UserRole(r.Context())
 	userID := UserID(r.Context())
 
-	// Only an assigned interviewer (or admin) may submit.
-	if UserRole(r.Context()) == models.RoleInterviewer {
+	// Only the assigned interviewer for this stage (or an admin) may submit.
+	switch role {
+	case models.RoleInterviewer:
 		ok, err := h.store.IsStageInterviewer(r.Context(), stageID, userID)
 		if err != nil {
 			writeInternalError(w, r, err)
@@ -69,6 +65,11 @@ func (h *Handler) CreateFeedback(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "not your stage")
 			return
 		}
+	case models.RoleAdmin:
+		// allowed
+	default:
+		writeError(w, http.StatusForbidden, "only the assigned interviewer can submit feedback")
+		return
 	}
 
 	var fb models.Feedback
@@ -130,7 +131,7 @@ func (h *Handler) UpdateFeedback(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if existing.InterviewerID != UserID(r.Context()) && UserRole(r.Context()) == models.RoleInterviewer {
+	if UserRole(r.Context()) != models.RoleAdmin && existing.InterviewerID != UserID(r.Context()) {
 		writeError(w, http.StatusForbidden, "not your feedback")
 		return
 	}

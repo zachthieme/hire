@@ -152,14 +152,3 @@ func (s *Store) ListStagesByUser(ctx context.Context, userID int64, limit, offse
 	}
 	return out, rows.Err()
 }
-
-// CountIncompleteStages counts stages on an application that are not yet done
-// (a stage is done when complete or canceled). Mirrors the in-tx count in
-// CreateFeedback, which can't reuse this because that count must run on the tx.
-func (s *Store) CountIncompleteStages(ctx context.Context, appID int64) (int, error) {
-	var n int
-	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM stages WHERE application_id = $1 AND status NOT IN ('complete','canceled')`,
-		appID).Scan(&n)
-	return n, err
-}
