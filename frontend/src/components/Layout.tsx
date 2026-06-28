@@ -33,7 +33,7 @@ export default function Layout() {
       case 'interviewer':
         return (
           <>
-            <Link to="/" className={linkClass}>My Interviews</Link>
+            <Link to="/my-interviews" className={linkClass}>My Interviews</Link>
           </>
         )
       default:
