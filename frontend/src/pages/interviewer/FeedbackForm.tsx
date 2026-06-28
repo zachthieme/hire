@@ -1,12 +1,14 @@
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { feedback as fbApi, type Competency, type FeedbackCreate } from '@/lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { stages as stagesApi, competencies as compApi, type Competency, type FeedbackCreate } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
 import { Star } from 'lucide-react'
 
 const RECOMMENDATIONS = [
@@ -17,19 +19,60 @@ const RECOMMENDATIONS = [
 ]
 
 interface Props {
-  interviewId: number
-  competencies: Competency[]
-  onSubmitted: () => void
+  stageId: number
+  alreadySubmitted: boolean
+  existingCount?: number
 }
 
-export default function FeedbackForm({ interviewId, competencies, onSubmitted }: Props) {
+export default function FeedbackForm({ stageId, alreadySubmitted }: Props) {
   const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const { data: competencies = [] } = useQuery({ queryKey: ['competencies'], queryFn: () => compApi.list() })
+  const { data: stageFeedback = [] } = useQuery({
+    queryKey: ['stage-feedback', stageId],
+    queryFn: () => stagesApi.feedback(stageId),
+    enabled: alreadySubmitted,
+  })
+
   const [recommendation, setRecommendation] = useState('')
   const [reason, setReason] = useState('')
   const [notes, setNotes] = useState('')
   const [ratings, setRatings] = useState<Record<number, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  const compMap = Object.fromEntries(competencies.map((c: Competency) => [c.id, c]))
+
+  if (alreadySubmitted) {
+    const mine = stageFeedback.find(f => f.interviewer_id === user?.id) ?? stageFeedback[0]
+    return (
+      <Card>
+        <CardHeader><CardTitle>Your Feedback</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {mine ? (
+            <>
+              <p><strong>Recommendation:</strong> {mine.recommendation.replace(/_/g, ' ')}</p>
+              {mine.recommendation_reason && <p><strong>Reason:</strong> {mine.recommendation_reason}</p>}
+              {mine.competency_ratings?.map(cr => (
+                <div key={cr.id} className="flex justify-between text-sm">
+                  <span>{compMap[cr.competency_id]?.name || `Competency ${cr.competency_id}`}</span>
+                  <span className="font-medium">{cr.rating_value}</span>
+                </div>
+              ))}
+              {mine.free_form_notes && (
+                <>
+                  <Separator />
+                  <p className="text-sm whitespace-pre-wrap">{mine.free_form_notes}</p>
+                </>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">Feedback submitted.</p>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -44,11 +87,11 @@ export default function FeedbackForm({ interviewId, competencies, onSubmitted }:
           rating_value: value,
         })),
       }
-      await fbApi.create(interviewId, data)
-      queryClient.invalidateQueries({ queryKey: ['my-interviews'] })
-      onSubmitted()
-    } catch (err: any) {
-      setError(err.message || 'Failed to submit feedback')
+      await stagesApi.submitFeedback(stageId, data)
+      queryClient.invalidateQueries({ queryKey: ['my-stages'] })
+      queryClient.invalidateQueries({ queryKey: ['stage-feedback', stageId] })
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to submit feedback')
     } finally {
       setSubmitting(false)
     }

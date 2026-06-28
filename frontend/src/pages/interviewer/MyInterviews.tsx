@@ -1,40 +1,34 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { interviews as ivApi, type Interview } from '@/lib/api'
+import { myStages as myStagesApi, type MyStage } from '@/lib/api'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 
 export default function MyInterviews() {
-  const { data: myInterviews = [] } = useQuery({ queryKey: ['my-interviews'], queryFn: ivApi.listMine })
-
+  const { data: stages = [] } = useQuery({ queryKey: ['my-stages'], queryFn: () => myStagesApi.list() })
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">My Interviews</h1>
-
-      {myInterviews.length === 0 && <p className="text-gray-500">No interviews assigned yet.</p>}
-
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Focus Area</TableHead>
-            <TableHead>Scheduled</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead></TableHead>
-          </TableRow>
-        </TableHeader>
+        <TableHeader><TableRow>
+          <TableHead>Type</TableHead><TableHead>Candidate</TableHead><TableHead>Job</TableHead>
+          <TableHead>Scheduled</TableHead><TableHead>Status</TableHead><TableHead></TableHead>
+        </TableRow></TableHeader>
         <TableBody>
-          {myInterviews.map((iv: Interview) => (
-            <TableRow key={iv.id}>
-              <TableCell className="font-medium">{iv.focus_area}</TableCell>
-              <TableCell>{new Date(iv.scheduled_at).toLocaleString()}</TableCell>
+          {stages.map((s: MyStage) => (
+            <TableRow key={s.id}>
+              <TableCell>{s.type === 'phone_screen' ? 'Phone Screen' : 'Interview'}{s.focus_area && ` — ${s.focus_area}`}</TableCell>
+              <TableCell>{s.candidate_name}</TableCell>
+              <TableCell>{s.job_title}</TableCell>
+              <TableCell>{new Date(s.scheduled_at).toLocaleString()}</TableCell>
               <TableCell>
-                <Badge variant={iv.status === 'complete' ? 'default' : 'outline'}>
-                  {iv.status === 'complete' ? 'Feedback Submitted' : 'Pending'}
-                </Badge>
+                {s.has_my_feedback
+                  ? <Badge>Feedback Submitted</Badge>
+                  : <Badge variant="outline">Pending</Badge>}
               </TableCell>
               <TableCell>
-                <Link to={`/interviews/${iv.id}`} className="text-blue-600 hover:underline text-sm">
-                  {iv.status === 'complete' ? 'View' : 'Submit Feedback'}
+                <Link to={`/interviews/${s.id}`} className="text-primary hover:underline text-sm">
+                  {s.has_my_feedback ? 'View' : 'Submit Feedback'}
                 </Link>
               </TableCell>
             </TableRow>
