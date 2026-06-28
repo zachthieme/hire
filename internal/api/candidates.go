@@ -30,13 +30,6 @@ func (h *Handler) CreateCandidate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if c.Status == "" {
-		c.Status = models.CandidateStatusActive
-	}
-	if err := validateEnum(c.Status, "status", models.ValidCandidateStatuses); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
 	if err := h.store.CreateCandidate(r.Context(), &c); err != nil {
 		writeInternalError(w, r, err)
 		return
@@ -91,13 +84,6 @@ func (h *Handler) UpdateCandidate(w http.ResponseWriter, r *http.Request) {
 	if err := readJSON(r, &updates); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
-	}
-	if updates.Status != "" {
-		if err := validateEnum(updates.Status, "status", models.ValidCandidateStatuses); err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		existing.Status = updates.Status
 	}
 	if updates.Name != "" {
 		existing.Name = updates.Name
